@@ -13,6 +13,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class JourneyStoreTest {
     private lateinit var context: Context
+    private val testNow = parseBookingTime("03/10/2026 10:00")!!
     private lateinit var store: JourneyStore
     @Before fun resetStorage() {
         context = ApplicationProvider.getApplicationContext()
@@ -27,19 +28,38 @@ class JourneyStoreTest {
         data = draft.copy(journeyTicket = generateJourneyTicket()), createdAt = created,
         countdownEndsAt = created + 300_000, accentIndex = 1)
 
+    @Test fun ticketsExpireAtBookedOnPlus24HoursAndCleanupPersists() {
+        val one = ticket(created = testNow + TICKET_RETENTION_MILLIS * 3)
+        val bookedAt = parseBookingTime(one.data.bookedOn)!!
+        val future = ticket(validDraft().copy(bookedOn = "05/10/2026 09:00"))
+        val invalid = ticket(validDraft().copy(bookedOn = "invalid"), created = bookedAt)
+        val original = JourneyState(tickets = listOf(one, future, invalid),
+            passengers = listOf(Passenger(name = "Kept", mobile = "")),
+            templates = listOf(templateFromDraft(one.data)), profile = UserProfile(name = "Kept"), walletPaise = 1234)
+        assertTrue(store.save(original))
+        assertEquals(original, store.load(bookedAt + TICKET_RETENTION_MILLIS - 1))
+        val cleaned = store.load(bookedAt + TICKET_RETENTION_MILLIS)
+        assertEquals(original.copy(tickets = listOf(future)), cleaned)
+        assertEquals(cleaned, store.load(bookedAt + TICKET_RETENTION_MILLIS))
+        assertEquals(emptyList<StoredTicket>(), original.copy(tickets = listOf(one.copy(cancelled = true)))
+            .withoutExpiredTickets(bookedAt + TICKET_RETENTION_MILLIS).tickets)
+        // Opening details and resetting its countdown never changes the retention deadline.
+        assertTrue(original.copy(tickets = listOf(one.copy(countdownEndsAt = Long.MAX_VALUE)))
+            .withoutExpiredTickets(bookedAt + TICKET_RETENTION_MILLIS).tickets.isEmpty())
+    }
     @Test fun walletAndPhotoPersistAndOlderSnapshotsKeepTickets() {
         val one = ticket()
         val profile = UserProfile("Traveller", "9876543210", "profile-1234.jpg")
         val state = JourneyState(tickets = listOf(one), profile = profile, walletPaise = 12345)
         assertTrue(store.save(state))
-        assertEquals(state, store.load())
+        assertEquals(state, store.load(testNow))
         val prefs = context.getSharedPreferences(PROFILES_PREFS, Context.MODE_PRIVATE)
         val raw = JSONObject(prefs.getString("journey_state_v1", null)!!)
         raw.remove("walletPaise"); raw.getJSONObject("profile").remove("photoFile")
         prefs.edit().putString("journey_state_v1", raw.toString()).commit()
-        assertEquals(listOf(one), store.load().tickets)
-        assertEquals(0L, store.load().walletPaise)
-        assertEquals("", store.load().profile.photoFile)
+        assertEquals(listOf(one), store.load(testNow).tickets)
+        assertEquals(0L, store.load(testNow).walletPaise)
+        assertEquals("", store.load(testNow).profile.photoFile)
     }
     @Test fun walletAmountsUseExactPaiseAndRejectInvalidValues() {
         assertEquals(12345L, walletAmountPaise("123.45"))
@@ -57,20 +77,20 @@ class JourneyStoreTest {
             postOffice = "Panihati S.O", city = "North 24 Parganas")
         val state = JourneyState(tickets = listOf(one), passengers = listOf(passenger), profile = profile)
         assertTrue(store.save(state))
-        assertEquals(state, store.load())
+        assertEquals(state, store.load(testNow))
         val prefs = context.getSharedPreferences(PROFILES_PREFS, Context.MODE_PRIVATE)
         val raw = JSONObject(prefs.getString("journey_state_v1", null)!!)
         listOf("dob", "concession", "berth", "idType", "idNumber").forEach { raw.getJSONArray("passengers").getJSONObject(0).remove(it) }
         listOf("dob", "gender", "idType", "idNumber", "address1", "address2", "pin", "district", "stateName", "country", "username", "email", "divyangjan", "menuVersion", "postOffice", "city")
             .forEach { raw.getJSONObject("profile").remove(it) }
         prefs.edit().putString("journey_state_v1", raw.toString()).commit()
-        assertEquals(one, store.load().tickets.single())
-        assertEquals("General", store.load().passengers.single().concession)
-        assertEquals("No Preference", store.load().passengers.single().berth)
-        assertEquals("profile-1234.jpg", store.load().profile.photoFile)
-        assertEquals("1.0", store.load().profile.menuVersion)
-        assertEquals("", store.load().profile.postOffice)
-        assertEquals("", store.load().profile.city)
+        assertEquals(one, store.load(testNow).tickets.single())
+        assertEquals("General", store.load(testNow).passengers.single().concession)
+        assertEquals("No Preference", store.load(testNow).passengers.single().berth)
+        assertEquals("profile-1234.jpg", store.load(testNow).profile.photoFile)
+        assertEquals("1.0", store.load(testNow).profile.menuVersion)
+        assertEquals("", store.load(testNow).profile.postOffice)
+        assertEquals("", store.load(testNow).profile.city)
     }
     @Test fun mealMarkersAndDobValidationHandleLegacyAndNewPreferences() {
         assertEquals("Veg", mealMarker("Vegetarian"))
@@ -104,26 +124,26 @@ class JourneyStoreTest {
         val one = ticket()
         val two = ticket(validDraft().copy(origin = "DELHI", destination = "AGRA"), 2000L)
         assertTrue(store.save(JourneyState(tickets = listOf(one, two))))
-        assertEquals(listOf(one, two), JourneyStore(context).load().tickets)
+        assertEquals(listOf(one, two), JourneyStore(context).load(testNow).tickets)
     }
     @Test fun sameRouteCreatesSeparateTickets() {
         val one = ticket(); val two = ticket()
         assertNotEquals(one.id, two.id)
         assertTrue(store.save(JourneyState(tickets = listOf(one, two))))
-        assertEquals(2, store.load().tickets.size)
+        assertEquals(2, store.load(testNow).tickets.size)
     }
     @Test fun changingProfilesAndTemplatesDoesNotChangeTickets() {
         val one = ticket()
         val passenger = Passenger(name = "Passenger", mobile = "9876543210")
         val template = templateFromDraft(one.data)
         assertTrue(store.save(JourneyState(tickets = listOf(one), passengers = listOf(passenger), templates = listOf(template))))
-        val before = store.load()
+        val before = store.load(testNow)
         val changed = before.copy(passengers = listOf(passenger.copy(name = "Changed")),
             templates = listOf(template.copy(destination = "DIFFERENT")))
         assertTrue(store.save(changed))
-        assertEquals(one, store.load().tickets.single())
+        assertEquals(one, store.load(testNow).tickets.single())
         assertTrue(store.save(changed.copy(passengers = emptyList(), templates = emptyList())))
-        assertEquals(one, store.load().tickets.single())
+        assertEquals(one, store.load(testNow).tickets.single())
     }
     @Test fun bookAgainRefreshesTimesAndRemovesReference() {
         val original = validDraft().copy(journeyTicket = "X123456789")
@@ -139,7 +159,7 @@ class JourneyStoreTest {
         val one = ticket(created = 1000L)
         assertEquals(300, one.secondsLeft(1000L))
         assertTrue(store.save(JourneyState(tickets = listOf(one))))
-        val reloaded = store.load().tickets.single()
+        val reloaded = store.load(testNow).tickets.single()
         assertEquals(120, reloaded.secondsLeft(181000L))
         assertEquals(0, reloaded.secondsLeft(400000L))
         assertEquals(one.countdownEndsAt, reloaded.countdownEndsAt)
@@ -159,17 +179,17 @@ class JourneyStoreTest {
         }).toString()
         val prefs = context.getSharedPreferences(PROFILES_PREFS, Context.MODE_PRIVATE)
         prefs.edit().putString(SAVED_JOURNEYS_KEY, raw).commit()
-        val first = store.load()
+        val first = store.load(testNow)
         assertEquals(2, first.templates.size)
         assertEquals(1, first.passengers.size)
         assertEquals(0, first.tickets.size)
         assertEquals(raw, prefs.getString(SAVED_JOURNEYS_KEY, null))
-        assertEquals(first, JourneyStore(context).load())
+        assertEquals(first, JourneyStore(context).load(testNow))
     }
     @Test fun corruptStorageFailsWithoutDeletingData() {
         val prefs = context.getSharedPreferences(PROFILES_PREFS, Context.MODE_PRIVATE)
         prefs.edit().putString("journey_state_v1", "broken json").commit()
-        assertTrue(runCatching { store.load() }.isFailure)
+        assertTrue(runCatching { store.load(testNow) }.isFailure)
         assertEquals("broken json", prefs.getString("journey_state_v1", null))
     }
     @Test fun invalidInputAndDatesAreRejected() {
@@ -188,6 +208,6 @@ class JourneyStoreTest {
             passengers = listOf(Passenger(name = "Traveller", mobile = "9123456789", age = "26", gender = "Male", meal = "Vegetarian")),
             templates = listOf(templateFromDraft(validDraft())))
         assertTrue(store.save(state))
-        assertEquals(state, store.load())
+        assertEquals(state, store.load(testNow))
     }
 }

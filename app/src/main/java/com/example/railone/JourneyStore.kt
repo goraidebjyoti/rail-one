@@ -65,6 +65,14 @@ internal fun parseBookingTime(value: String): Long? {
     val parsed = parser.parse(value, position)
     return if (parsed != null && position.index == value.length) parsed.time else null
 }
+internal const val TICKET_RETENTION_MILLIS = 24 * 60 * 60 * 1000L
+internal fun JourneyState.withoutExpiredTickets(now: Long): JourneyState {
+    val retained = tickets.filter { ticket ->
+        val bookedAt = parseBookingTime(ticket.data.bookedOn) ?: ticket.createdAt
+        now < bookedAt + TICKET_RETENTION_MILLIS
+    }
+    return if (retained.size == tickets.size) this else copy(tickets = retained)
+}
 internal fun freshDraft(): TicketData {
     val now = currentDateTimeString()
     return TicketData("", "", "", "", "", toTicketDisplayDateTime(now), "", "1", "0", now,
@@ -132,7 +140,7 @@ private fun <T> writeArray(items: List<T>, write: (T) -> JSONObject): JSONArray 
 internal class JourneyStore(private val context: Context) {
     private val preferences = context.getSharedPreferences(PROFILES_PREFS, Context.MODE_PRIVATE)
     private val key = "journey_state_v1"
-    fun load(): JourneyState {
+    fun load(now: Long = System.currentTimeMillis()): JourneyState {
         val raw = preferences.getString(key, null)
         if (raw == null) {
             // Check legacy syntax before using its older tolerant reader.
@@ -154,7 +162,7 @@ internal class JourneyStore(private val context: Context) {
         }
         val j = JSONObject(raw)
         require(j.getInt("version") == 1) { "Unsupported storage version" }
-        return JourneyState(
+        val stored = JourneyState(
             tickets = readArray(j.getJSONArray("tickets")) { t -> StoredTicket(
                 id = t.getString("id"), data = ticketFromJson(t.getJSONObject("data")),
                 createdAt = t.getLong("createdAt"), countdownEndsAt = t.getLong("countdownEndsAt"),
@@ -173,6 +181,9 @@ internal class JourneyStore(private val context: Context) {
                 it.optString("postOffice"), it.optString("city")) },
             showServices = j.getBoolean("showServices"),
             walletPaise = j.optLong("walletPaise", 0).also { require(it in 0..MAX_WALLET_PAISE) })
+        val retained = stored.withoutExpiredTickets(now)
+        if (retained != stored) check(save(retained)) { "Unable to remove expired tickets" }
+        return retained
     }
     fun save(state: JourneyState): Boolean {
         val json = JSONObject().apply {

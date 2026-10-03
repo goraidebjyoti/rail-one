@@ -90,11 +90,20 @@ internal fun RailOneApp() {
     fun notify(text: String) { scope.launch { snackbar.showSnackbar(text) } }
     fun persist(updated: JourneyState): Boolean {
         if (loaded.isFailure) { message = "Stored data could not be read. Nothing has been overwritten. Restore a device backup or contact support with the source project."; return false }
-        if (!runCatching { store.save(updated) }.getOrDefault(false)) {
+        val retained = updated.withoutExpiredTickets(System.currentTimeMillis())
+        if (!runCatching { store.save(retained) }.getOrDefault(false)) {
             notify("Could not save changes. Please retry."); return false
         }
-        state = updated
+        state = retained
         return true
+    }
+    LaunchedEffect(now) {
+        val retained = state.withoutExpiredTickets(now)
+        if (retained != state && persist(retained)) {
+            if (page == "Ticket" && retained.tickets.none { it.id == selectedId }) {
+                selectedId = null; page = "Main"; tab = returnTab
+            }
+        }
     }
     fun refreshData() {
         runCatching { store.load() }.onSuccess { state = it; notify("Saved data refreshed") }
@@ -239,7 +248,9 @@ internal fun RailOneApp() {
                             "Home" -> HomePage(state, now, onNew = { edit(freshDraft()) },
                                 onBookings = { tab = "My Bookings" }, onView = { openTicket(it) },
                                 onRepeat = { edit(renewedDraft(it.data)) },
-                                onService = { message = "$it is not connected in this local app. You can create and manage journey tickets." })
+                                onService = { /* Service not implemented. */ }, onSocial = { url ->
+                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+                                })
                             "My Bookings" -> BookingsPage(state.tickets, now,
                                 filter = bookingsFilter, newestFirst = bookingsNewestFirst,
                                 onFilter = { bookingsFilter = it }, onSort = { bookingsNewestFirst = !bookingsNewestFirst }, onNew = { edit(freshDraft()) },
@@ -256,7 +267,7 @@ internal fun RailOneApp() {
                                     }
                                 }, onWalletAdd = { walletEditing = true }, onWalletRefresh = { refreshData() },
                                 onViewProfile = { profileViewing = true },
-                                onService = { message = "$it is not connected in this local app." },
+                                onService = { /* Service not implemented. */ },
                                 onTransactions = { tab = "My Bookings"; bookingsFilter = "All" }, onProfile = { profileEditing = true },
                                 onAccount = { accountOpen = true },
                                 onAddPassenger = { passengerEditingId = UUID.randomUUID().toString() },
@@ -276,7 +287,7 @@ internal fun RailOneApp() {
             onWalletAdd = { menuOpen = false; walletEditing = true },
             onProfile = { menuOpen = false; tab = "You" },
             onServices = { persist(state.copy(showServices = !state.showServices)); menuOpen = false },
-            onInfo = { menuOpen = false; message = it }, onShare = {
+            onShare = {
                 menuOpen = false
                 val intent = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"; putExtra(Intent.EXTRA_TEXT,

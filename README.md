@@ -108,3 +108,9 @@ You → Edit Details → App version shown in Menu edits the right-side Menu foo
 ## Your Details view
 
 You → View Details opens the reference-style Your Details panel, with the saved name and an edit pencil, DOB in long-form English, gender, ID type and masked number, address lines, PIN, Post Office, City and Country. Rows are read-only and scroll within the safe area. The pencil opens Edit Your Details, where Post Office and City are now editable and saved. City falls back to the previously saved district if a separate City value is absent. The ID check indicates a locally saved value.
+
+Tickets are automatically removed 24 hours after the editable Booked On timestamp captured at creation, including completed or cancelled tickets. The five-minute details countdown does not extend this deadline. Cleanup runs while the app is open and when saved data is next loaded after the app was closed; no background service is required. Other saved data is retained. Legacy tickets with an unreadable Booked On value use their creation timestamp.
+
+Home hides the entire Upcoming Journey section (heading, View All and cards) when there are no upcoming tickets. The facts carousel reserves space for the longest caption at the current font scale, so scrolling to Hubballi does not move the social heading or banner.
+
+The X, Facebook, Instagram and YouTube logos in the social banner each open the Ministry of Railways account in an installed app or browser. Tapping other artwork in the banner does nothing. Unimplemented services and menu actions do nothing when tapped; they no longer show placeholder information dialogs. Ticket creation, bookings, passengers, profile editing, wallet editing, sharing and Show/Hide Services retain their implemented actions.

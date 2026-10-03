@@ -36,6 +36,34 @@ class NavigationTest {
         scenario = ActivityScenario.launch(MainActivity::class.java)
     }
     @After fun stop() { scenario.close() }
+    @Test fun emptyHomeHidesUpcomingSectionIncludingWhenOnlyCompletedTicketsRemain() {
+        scenario.close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = JourneyStore(context)
+        store.save(JourneyState())
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        compose.onNodeWithText("Upcoming Journey").assertDoesNotExist()
+        compose.onNodeWithText("View All").assertDoesNotExist()
+        compose.onNodeWithTag("upcoming-journeys").assertDoesNotExist()
+        scenario.close()
+        val past = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.US)
+            .format(java.util.Date(System.currentTimeMillis() - 60_000))
+        store.save(JourneyState(tickets = listOf(first.copy(data = first.data.copy(validTill = past)))))
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        compose.onNodeWithText("Upcoming Journey").assertDoesNotExist()
+        compose.onNodeWithText("View All").assertDoesNotExist()
+        compose.onNodeWithTag("upcoming-journeys").assertDoesNotExist()
+    }
+    @Test fun socialHeadingStaysInPlaceWhenFactsScrollToLongestCaption() {
+        compose.onNodeWithTag("railway-facts").performScrollTo()
+        val rowHeight = compose.onNodeWithTag("railway-facts").fetchSemanticsNode().size.height
+        val before = compose.onNodeWithTag("social-heading").fetchSemanticsNode().boundsInRoot.top
+        compose.onNodeWithTag("railway-facts").performScrollToIndex(3)
+        compose.waitForIdle()
+        val after = compose.onNodeWithTag("social-heading").fetchSemanticsNode().boundsInRoot.top
+        org.junit.Assert.assertEquals(rowHeight, compose.onNodeWithTag("railway-facts").fetchSemanticsNode().size.height)
+        org.junit.Assert.assertEquals(before, after, 1f)
+    }
     @Test fun selectingTicketAndRecreatingActivityKeepsItsDetails() {
         compose.onNodeWithText("My Bookings").performClick()
         compose.onNodeWithText("UTS: ${second.data.journeyTicket}").assertIsDisplayed()

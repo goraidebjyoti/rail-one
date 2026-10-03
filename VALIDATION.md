@@ -87,3 +87,18 @@ Added a backward-compatible menuVersion profile field, version input validation 
 ## Reference Your Details panel
 
 Replaced the name/mobile message dialog with a dedicated read-only reference sheet and edit shortcut. Added backward-compatible Post Office and City fields to profile storage and editing. Added a UI regression for viewing DOB, masked ID and postal/city values, using the edit shortcut and preserving tickets. Extended storage reload/default tests. Source syntax and static checks passed; device execution and visual matching remain unverified locally.
+
+## Empty Home, ticket retention and facts layout update
+
+- Home only emits the Upcoming Journey heading, View All and pager when upcoming tickets exist.
+- Retention uses Booked On plus exactly 24 hours, independently of validity, cancellation, creation time and the details countdown. Expired records are removed from the shared snapshot on load and during the foreground clock updates. Closed-app cleanup occurs on the next load.
+- All fact captions are measured before layout; the row reserves the longest caption height, including off-screen Hubballi, and adapts to font scale without truncating captions.
+- Added regression coverage for the deadline boundary, future and legacy records, persisted cleanup, unchanged profile/passengers/templates/wallet, empty/completed-only Home and stable facts-row/social position. Storage tests use an injected clock so their dated fixtures remain reproducible.
+- Static Kotlin, serialization, XML and workflow checks passed. There are 30 instrumentation tests included; they have not been executed locally because this environment has no Android SDK/emulator. GitHub must run the device checks.
+
+## Social links and inactive buttons
+
+- Added four separate accessible click regions aligned with the existing social logos, scaling with the banner. HTTPS ACTION_VIEW links: x.com/RailMinIndia, facebook.com/RailMinIndia, instagram.com/railminindia and youtube.com/user/RailMinIndia.
+- Removed placeholder Home/You service messages and Menu information popups. Unimplemented menu actions leave the drawer open and do nothing. Storage errors and confirmations for actual edits remain.
+- Social destinations checked against published Ministry account references (PIB release 106141 for X/Facebook/YouTube and the Ministry profile listing for Instagram). Direct Instagram fetching was unavailable.
+- Static syntax, serialization, XML and CI checks passed. Browser/app launching and visual touch alignment have not been tested on a device locally.

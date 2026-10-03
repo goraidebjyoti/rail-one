@@ -38,6 +38,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -139,7 +142,8 @@ private fun Offering(label: String, resource: Int, modifier: Modifier, onClick: 
 }
 @Composable
 internal fun HomePage(state: JourneyState, now: Long, onNew: () -> Unit, onBookings: () -> Unit,
-    onView: (StoredTicket) -> Unit, onRepeat: (StoredTicket) -> Unit, onService: (String) -> Unit) {
+    onView: (StoredTicket) -> Unit, onRepeat: (StoredTicket) -> Unit, onService: (String) -> Unit,
+    onSocial: (String) -> Unit = {}) {
     val upcoming = state.tickets.filter { it.status(now) == "Upcoming" }.sortedBy { parseBookingTime(it.data.bookedOn) }
     Column(Modifier.fillMaxSize().background(Color.White)) {
         HomeHeader(onService)
@@ -171,19 +175,14 @@ internal fun HomePage(state: JourneyState, now: Long, onNew: () -> Unit, onBooki
                     }
                 }
             }
-            item {
+            if (upcoming.isNotEmpty()) item {
                 Spacer(Modifier.height(32.dp))
                 Row(Modifier.padding(horizontal = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                     Heading("Upcoming Journey", Modifier.weight(1f))
                     Text("View All", fontSize = 11.sp, color = Blue, modifier = Modifier.clickable(onClick = onBookings).padding(vertical = 4.dp))
                 }
                 Spacer(Modifier.height(14.dp))
-                if (upcoming.isEmpty()) {
-                    Column(Modifier.padding(horizontal = 45.dp).fillMaxWidth().background(PaleViolet, RoundedCornerShape(20.dp)).padding(18.dp)) {
-                        Text("No upcoming journeys", color = Ink, fontSize = 13.sp)
-                        TextButton(onClick = onNew) { Text("New Ticket", fontSize = 12.sp) }
-                    }
-                }
+
             }
             if (upcoming.isNotEmpty()) item {
                 val pager = rememberPagerState(pageCount = { upcoming.size })
@@ -205,21 +204,60 @@ internal fun HomePage(state: JourneyState, now: Long, onNew: () -> Unit, onBooki
                 Spacer(Modifier.height(20.dp))
                 Heading("Do You Know?", Modifier.padding(horizontal = 9.dp))
                 Spacer(Modifier.height(12.dp))
-                LazyRow(contentPadding = PaddingValues(horizontal = 10.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    item { FactCard(R.drawable.fact_first_train, "First ever passenger train was run between Bori Bandar to Thane on April 16, 1853.") }
-                    item { FactCard(R.drawable.fact_chenab, "Chenab Railway Bridge in Dharot, Jammu & Kashmir is the World's highest Railway Bridge.") }
-                    item { FactCard(R.drawable.fact_noney, "Noney Bridge is going to be world's tallest railway bridge pier at a height of 141 meters.") }
-                    item { FactCard(R.drawable.fact_hubballi, "Shree Siddharoodha Swamiji Railway Station Hubballi is world's longest Railway Platform with length of 1505 meters.") }
-                    item { FactCard(R.drawable.fact_electrification, "99% Electrification is achieved in Indian Railways.") }
-                }
+                FactsCarousel()
                 Spacer(Modifier.height(40.dp))
-                Heading("Follow Us On Social Media Platforms", Modifier.padding(horizontal = 9.dp))
+                Heading("Follow Us On Social Media Platforms", Modifier.padding(horizontal = 9.dp).testTag("social-heading"))
                 Spacer(Modifier.height(18.dp))
-                Picture(R.drawable.social_banner, "Social media: X, Facebook, Instagram and YouTube",
-                    Modifier.padding(horizontal = 18.dp).fillMaxWidth().aspectRatio(830f / 390f).clip(RoundedCornerShape(9.dp))
-                        .clickable { onService("Social media links") }, ContentScale.Crop)
+                SocialBanner(onSocial)
             }
         }
+    }
+}
+internal data class RailwaySocialLink(val label: String, val url: String, val left: Float, val width: Float)
+internal val railwaySocialLinks = listOf(
+    RailwaySocialLink("X", "https://x.com/RailMinIndia", 198f, 84f),
+    RailwaySocialLink("Facebook", "https://www.facebook.com/RailMinIndia/", 309f, 84f),
+    RailwaySocialLink("Instagram", "https://www.instagram.com/railminindia/", 432f, 76f),
+    RailwaySocialLink("YouTube", "https://www.youtube.com/user/RailMinIndia", 548f, 84f),
+)
+@Composable
+private fun SocialBanner(onOpen: (String) -> Unit) {
+    // The four logos are part of the 830 x 390 artwork. Scale each individual
+    // hit region with the image so that tapping a logo opens its own account.
+    BoxWithConstraints(Modifier.padding(horizontal = 18.dp).fillMaxWidth()
+        .aspectRatio(830f / 390f).clip(RoundedCornerShape(9.dp))) {
+        Picture(R.drawable.social_banner, null, Modifier.matchParentSize(), ContentScale.FillBounds)
+        railwaySocialLinks.forEach { link ->
+            Box(Modifier.offset(x = maxWidth * (link.left / 830f), y = maxHeight * (148f / 390f))
+                .size(width = maxWidth * (link.width / 830f), height = maxHeight * (94f / 390f))
+                .semantics { contentDescription = "Ministry of Railways on ${link.label}" }
+                .testTag("social-${link.label.lowercase(Locale.ROOT)}")
+                .clickable { onOpen(link.url) })
+        }
+    }
+}
+private val railwayFacts = listOf(
+    R.drawable.fact_first_train to "First ever passenger train was run between Bori Bandar to Thane on April 16, 1853.",
+    R.drawable.fact_chenab to "Chenab Railway Bridge in Dharot, Jammu & Kashmir is the World's highest Railway Bridge.",
+    R.drawable.fact_noney to "Noney Bridge is going to be world's tallest railway bridge pier at a height of 141 meters.",
+    R.drawable.fact_hubballi to "Shree Siddharoodha Swamiji Railway Station Hubballi is world's longest Railway Platform with length of 1505 meters.",
+    R.drawable.fact_electrification to "99% Electrification is achieved in Indian Railways.",
+)
+@Composable
+private fun FactsCarousel() {
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val style = LocalTextStyle.current.copy(color = Ink, fontSize = 12.sp,
+        lineHeight = 16.sp, fontWeight = FontWeight.Light)
+    // Measure every caption, including off-screen facts, at the actual font scale.
+    val captionHeight = with(density) {
+        railwayFacts.maxOf { (_, caption) ->
+            measurer.measure(caption, style, constraints = Constraints(maxWidth = 145.dp.roundToPx() - 4.dp.roundToPx())).size.height
+        }.toDp()
+    }
+    LazyRow(modifier = Modifier.height(145.dp * (327f / 369f) + 5.dp + captionHeight).testTag("railway-facts"),
+        contentPadding = PaddingValues(horizontal = 10.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        items(railwayFacts) { (resource, caption) -> FactCard(resource, caption) }
     }
 }
 @Composable
@@ -570,7 +608,7 @@ private fun DrawerRow(text: String, icon: Int, onClick: () -> Unit) {
 }
 @Composable
 internal fun MenuDrawer(state: JourneyState, onDismiss: () -> Unit, onProfile: () -> Unit,
-    onServices: () -> Unit, onInfo: (String) -> Unit, onShare: () -> Unit, onWalletAdd: () -> Unit = {}) {
+    onServices: () -> Unit, onShare: () -> Unit, onWalletAdd: () -> Unit = {}) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val dialogView = LocalView.current
         SideEffect { (dialogView.parent as? DialogWindowProvider)?.window?.setDimAmount(0f) }
@@ -589,16 +627,16 @@ internal fun MenuDrawer(state: JourneyState, onDismiss: () -> Unit, onProfile: (
                 WalletRow(state.walletPaise, drawer = true, onAdd = onWalletAdd)
                 Spacer(Modifier.height(19.dp))
                 DrawerRow("Show/Hide Services", R.drawable.menu_services, onServices)
-                DrawerRow("FAQs", R.drawable.menu_faq) { onInfo("Create separate tickets to keep several journeys. My Bookings opens any stored ticket. Book Again creates an editable copy. Saved passengers and templates are optional shortcuts. Completed means Valid Till has passed.") }
-                DrawerRow("Help & Support", R.drawable.menu_support) { onInfo("Use My Bookings to switch tickets and You to manage profiles. This app has no connected railway support service.") }
-                DrawerRow("Reserved Services - Counter", R.drawable.menu_counter) { onInfo("Counter services are not connected in this local app.") }
-                DrawerRow("About", R.drawable.menu_about) { onInfo("Rail One version 1.0. Local ticket previews, not valid for travel. Wallet, railway booking, refunds, Aadhaar and biometrics are not connected.") }
-                DrawerRow("Rate Us", R.drawable.menu_rate) { onInfo("A store listing has not been configured for this app.") }
+                DrawerRow("FAQs", R.drawable.menu_faq) { /* Service not implemented. */ }
+                DrawerRow("Help & Support", R.drawable.menu_support) { /* Service not implemented. */ }
+                DrawerRow("Reserved Services - Counter", R.drawable.menu_counter) { /* Service not implemented. */ }
+                DrawerRow("About", R.drawable.menu_about) { /* Service not implemented. */ }
+                DrawerRow("Rate Us", R.drawable.menu_rate) { /* Service not implemented. */ }
                 DrawerRow("Share", R.drawable.menu_share, onShare)
                 Spacer(Modifier.height(30.dp))
                 HorizontalDivider(Modifier.padding(horizontal = 14.dp), color = Color(0xFFD7D0EC))
                 Spacer(Modifier.height(12.dp))
-                DrawerRow("Log Out", R.drawable.menu_logout) { onInfo("This is a local app without a signed-in account. Your saved data remains on this device.") }
+                DrawerRow("Log Out", R.drawable.menu_logout) { /* Service not implemented. */ }
                 Text("V-${state.profile.menuVersion}", color = Color(0xFFA8A8A8), fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 28.dp, bottom = 36.dp))
             }
         }
