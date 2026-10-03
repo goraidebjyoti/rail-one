@@ -69,7 +69,7 @@ private val Orange = Color(0xFFEBA95F)
 private val Muted = Color(0xFF8B8B94)
 private val MenuViolet = Color(0xFF9288F4)
 private val NavMuted = Color(0xFF99BCEB)
-internal const val TICKET_DELETE_HOLD_MILLIS = 3000L
+internal const val TICKET_DELETE_HOLD_MILLIS = 2000L
 
 @Composable
 private fun Picture(resource: Int, description: String?, modifier: Modifier = Modifier, scale: ContentScale = ContentScale.Fit) {
@@ -289,7 +289,7 @@ private fun BookingCard(ticket: StoredTicket, now: Long, onView: (StoredTicket) 
                 val wasKeepingScreenOn = view.keepScreenOn
                 view.keepScreenOn = true
                 try {
-                    // A release or scroll cancels the hold. Only a full three-second hold triggers it.
+                    // A release or scroll cancels the hold. Only a full two-second hold triggers it.
                     val finished = withTimeoutOrNull(TICKET_DELETE_HOLD_MILLIS) {
                         waitForUpOrCancellation()
                         true
@@ -599,7 +599,7 @@ internal fun MenuDrawer(state: JourneyState, onDismiss: () -> Unit, onProfile: (
                 HorizontalDivider(Modifier.padding(horizontal = 14.dp), color = Color(0xFFD7D0EC))
                 Spacer(Modifier.height(12.dp))
                 DrawerRow("Log Out", R.drawable.menu_logout) { onInfo("This is a local app without a signed-in account. Your saved data remains on this device.") }
-                Text("V-1.0", color = Color(0xFFA8A8A8), fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 28.dp, bottom = 36.dp))
+                Text("V-${state.profile.menuVersion}", color = Color(0xFFA8A8A8), fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 28.dp, bottom = 36.dp))
             }
         }
     }

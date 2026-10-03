@@ -25,7 +25,7 @@ internal data class UserProfile(val name: String = "", val mobile: String = "", 
     val dob: String = "", val gender: String = "Not specified", val idType: String = "No Preference", val idNumber: String = "",
     val address1: String = "", val address2: String = "", val pin: String = "", val district: String = "",
     val stateName: String = "", val country: String = "India", val username: String = "", val email: String = "",
-    val divyangjan: Boolean = false)
+    val divyangjan: Boolean = false, val menuVersion: String = "1.0", val postOffice: String = "", val city: String = "")
 internal const val MAX_WALLET_PAISE = 100000000L
 internal fun walletAmountPaise(value: String): Long? {
     if (!Regex("[0-9]{1,7}(\\.[0-9]{1,2})?").matches(value.trim())) return null
@@ -169,7 +169,8 @@ internal class JourneyStore(private val context: Context) {
             profile = j.getJSONObject("profile").let { UserProfile(it.getString("name"), it.getString("mobile"), it.optString("photoFile"),
                 it.optString("dob"), it.optString("gender", "Not specified"), it.optString("idType", "No Preference"), it.optString("idNumber"),
                 it.optString("address1"), it.optString("address2"), it.optString("pin"), it.optString("district"),
-                it.optString("stateName"), it.optString("country", "India"), it.optString("username"), it.optString("email"), it.optBoolean("divyangjan")) },
+                it.optString("stateName"), it.optString("country", "India"), it.optString("username"), it.optString("email"), it.optBoolean("divyangjan"), it.optString("menuVersion", "1.0"),
+                it.optString("postOffice"), it.optString("city")) },
             showServices = j.getBoolean("showServices"),
             walletPaise = j.optLong("walletPaise", 0).also { require(it in 0..MAX_WALLET_PAISE) })
     }
@@ -195,6 +196,8 @@ internal class JourneyStore(private val context: Context) {
                 put("dob", p.dob); put("gender", p.gender); put("idType", p.idType); put("idNumber", p.idNumber)
                 put("address1", p.address1); put("address2", p.address2); put("pin", p.pin); put("district", p.district)
                 put("stateName", p.stateName); put("country", p.country); put("username", p.username); put("email", p.email); put("divyangjan", p.divyangjan)
+                put("menuVersion", p.menuVersion)
+                put("postOffice", p.postOffice); put("city", p.city)
             })
             put("showServices", state.showServices)
             put("walletPaise", state.walletPaise)

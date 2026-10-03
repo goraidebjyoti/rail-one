@@ -65,6 +65,7 @@ internal fun RailOneApp() {
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     var profileEditing by rememberSaveable { mutableStateOf(false) }
+    var profileViewing by rememberSaveable { mutableStateOf(false) }
     var accountOpen by rememberSaveable { mutableStateOf(false) }
     var walletEditing by rememberSaveable { mutableStateOf(false) }
     var photoBusy by remember { mutableStateOf(false) }
@@ -254,7 +255,7 @@ internal fun RailOneApp() {
                                             scope.launch(Dispatchers.IO) { profilePhotoFile(context, old)?.delete() }
                                     }
                                 }, onWalletAdd = { walletEditing = true }, onWalletRefresh = { refreshData() },
-                                onViewProfile = { message = "Name: ${state.profile.name.ifBlank { "Not set" }}\nMobile: ${state.profile.mobile.ifBlank { "Not set" }}" },
+                                onViewProfile = { profileViewing = true },
                                 onService = { message = "$it is not connected in this local app." },
                                 onTransactions = { tab = "My Bookings"; bookingsFilter = "All" }, onProfile = { profileEditing = true },
                                 onAccount = { accountOpen = true },
@@ -296,6 +297,8 @@ internal fun RailOneApp() {
         if (profileEditing) ProfileDetailsSheet(state.profile, onDismiss = { profileEditing = false }, onSave = {
             if (persist(state.copy(profile = it.copy(photoFile = state.profile.photoFile)))) profileEditing = false
         })
+        if (profileViewing) ProfileViewSheet(state.profile, onDismiss = { profileViewing = false },
+            onEdit = { profileViewing = false; profileEditing = true })
         if (walletEditing) WalletDialog(state.walletPaise, onDismiss = { walletEditing = false }, onAdd = { amount ->
             if (amount <= MAX_WALLET_PAISE - state.walletPaise && persist(state.copy(walletPaise = state.walletPaise + amount)))
                 walletEditing = false
@@ -358,4 +361,3 @@ private fun WalletDialog(balance: Long, onDismiss: () -> Unit, onAdd: (Long) -> 
         }
     }) { Text("Add") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
 }
-

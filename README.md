@@ -65,7 +65,7 @@ gradle connectedDebugAndroidTest
 
 The launch check runs `.github/scripts/check-launch.sh` as one command so Bash conditionals remain intact. Its `crash-log` artifact includes logcat, launch output and an emulator screenshot. `.gitattributes` keeps shell scripts and workflow files at LF line endings when working on Windows.
 
-There are fifteen storage/model instrumentation tests and eleven Compose navigation tests covering separate journeys, duplicate routes, snapshot isolation, repeat booking, reload countdowns, validity/cancellation, migration, corrupted data, validation, preferences, activity recreation, blank new forms drawer service visibility and swiping to a fourth Home ticket.
+There are fifteen storage/model instrumentation tests and twelve Compose navigation tests covering separate journeys, duplicate routes, snapshot isolation, repeat booking, reload countdowns, validity/cancellation, migration, corrupted data, validation, preferences, activity recreation, blank new forms drawer service visibility and swiping to a fourth Home ticket.
 
 **Validation in the editing environment:** Kotlin syntax parsing and static consistency checks passed. Android compilation, emulator tests, and visual device verification were not run because the environment has no Android SDK or Gradle. The included workflow/tests must pass in an Android-equipped environment before treating the update as device-verified.
 
@@ -89,7 +89,7 @@ Add in You and Add Money in Menu open an editable rupee amount. Confirming adds 
 
 View Details starts a fresh five-minute countdown for the selected ticket only. Journey details, booking/validity dates and other tickets remain unchanged. This does not extend Valid Till or change the Upcoming/Completed/Cancelled status.
 
-In My Bookings, press and hold a ticket continuously for three seconds to open Delete ticket? Choose Delete to remove that ticket from local storage and both My Bookings and Home, or Keep to leave it unchanged. The hold gesture is only available in My Bookings. Releasing early or scrolling cancels the hold. The screen stays awake during the hold. Deletion is available for every booking filter and does not delete passengers or templates. Accessibility services can use the Delete ticket custom action to open the same confirmation.
+In My Bookings, press and hold a ticket continuously for two seconds to open Delete ticket? Choose Delete to remove that ticket from local storage and both My Bookings and Home, or Keep to leave it unchanged. The hold gesture is only available in My Bookings. Releasing early or scrolling cancels the hold. The screen stays awake during the hold. Deletion is available for every booking filter and does not delete passengers or templates. Accessibility services can use the Delete ticket custom action to open the same confirmation.
 
 The entry form and ticket details use navigation blue #0166FF, including Create Ticket and the form accents. Both Booking Details headers use a circular back button, a shared 14dp side inset and an 18dp text gap. Ticket Details places the mobile number under the title with a 4dp gap, following the supplied header reference.
 
@@ -98,3 +98,13 @@ The entry form and ticket details use navigation blue #0166FF, including Create 
 You → Saved Passengers → Add/Edit opens a large bottom panel with the reference gender tiles and nested concession, berth, meal and optional ID menus. All options visible in the supplied references are included. A new passenger requires name, gender and DOB; mobile is optional and can be supplied later in the booking form. DOB determines the displayed age. Selecting an ID type requires its card number; No Preference clears it. Existing passengers keep their stored fields when upgrading. Vegetarian meals show a green circle in a green square; non-vegetarian meals show a red marker. Tea/Coffee and unspecified meals have no dietary marker.
 
 Edit Details opens the larger Edit Your Details form. It saves personal details, username/email and address lines, PIN, district, state and country. District/state/country are editable text because this local app has no postcode lookup service. My Account is a separate panel showing the saved username, name, phone and email, a local Divyangjan preference and Delete Account confirmation. The green checks identify locally saved values, not verified online credentials. Delete Account clears only the local profile and photo after confirmation, keeping bookings, passengers, templates and wallet.
+
+## Scrollable forms and Menu version label
+
+Passenger, profile and preference panels size themselves within the dialog's safe drawing area and keyboard space. Their fixed heading sits above a bounded scrolling body. Extra space after the final control lets Add/Update buttons and the last preference option scroll fully above the navigation bar.
+
+You → Edit Details → App version shown in Menu edits the right-side Menu footer (for example, V-2.5-101). Save with Update. The value persists with the profile; older data defaults to 1.0. This is a display setting. The installed APK's versionName/versionCode remain the build-time values 1.0 / 1.
+
+## Your Details view
+
+You → View Details opens the reference-style Your Details panel, with the saved name and an edit pencil, DOB in long-form English, gender, ID type and masked number, address lines, PIN, Post Office, City and Country. Rows are read-only and scroll within the safe area. The pencil opens Edit Your Details, where Post Office and City are now editable and saved. City falls back to the previously saved district if a separate City value is absent. The ID check indicates a locally saved value.

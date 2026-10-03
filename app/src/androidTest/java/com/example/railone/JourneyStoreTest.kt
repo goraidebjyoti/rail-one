@@ -53,20 +53,24 @@ class JourneyStoreTest {
             dob = "28/12/1999", concession = "General", berth = "Lower", idType = "Passport/Travel Document", idNumber = "TEST123")
         val profile = UserProfile(name = "Traveller", mobile = "9876543210", photoFile = "profile-1234.jpg", dob = "28/12/1999",
             gender = "Male", address1 = "Street", address2 = "Area", pin = "700114", district = "North 24 Parganas",
-            stateName = "West Bengal", username = "traveller", email = "traveller@example.com", divyangjan = true)
+            stateName = "West Bengal", username = "traveller", email = "traveller@example.com", divyangjan = true, menuVersion = "2.5-101",
+            postOffice = "Panihati S.O", city = "North 24 Parganas")
         val state = JourneyState(tickets = listOf(one), passengers = listOf(passenger), profile = profile)
         assertTrue(store.save(state))
         assertEquals(state, store.load())
         val prefs = context.getSharedPreferences(PROFILES_PREFS, Context.MODE_PRIVATE)
         val raw = JSONObject(prefs.getString("journey_state_v1", null)!!)
         listOf("dob", "concession", "berth", "idType", "idNumber").forEach { raw.getJSONArray("passengers").getJSONObject(0).remove(it) }
-        listOf("dob", "gender", "idType", "idNumber", "address1", "address2", "pin", "district", "stateName", "country", "username", "email", "divyangjan")
+        listOf("dob", "gender", "idType", "idNumber", "address1", "address2", "pin", "district", "stateName", "country", "username", "email", "divyangjan", "menuVersion", "postOffice", "city")
             .forEach { raw.getJSONObject("profile").remove(it) }
         prefs.edit().putString("journey_state_v1", raw.toString()).commit()
         assertEquals(one, store.load().tickets.single())
         assertEquals("General", store.load().passengers.single().concession)
         assertEquals("No Preference", store.load().passengers.single().berth)
         assertEquals("profile-1234.jpg", store.load().profile.photoFile)
+        assertEquals("1.0", store.load().profile.menuVersion)
+        assertEquals("", store.load().profile.postOffice)
+        assertEquals("", store.load().profile.city)
     }
     @Test fun mealMarkersAndDobValidationHandleLegacyAndNewPreferences() {
         assertEquals("Veg", mealMarker("Vegetarian"))

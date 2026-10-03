@@ -9,7 +9,7 @@
 - Parsed the Android XML resources and manifest.
 - Parsed GitHub Actions YAML and checked that the behavior-tests job invokes connectedDebugAndroidTest.
 - Checked that no empty click handler remains in the application screens.
-- Added 15 storage/model tests and 11 Compose UI/navigation tests.
+- Added 15 storage/model tests and 12 Compose UI/navigation tests.
 
 ## Not performed in this workspace
 
@@ -54,11 +54,11 @@ Added Noney, Hubballi and electrification screenshot crops to the existing horiz
 
 ## Countdown reset and ticket deletion
 
-View Details updates and persists only the selected expiry before navigation, and sets the display clock to the opening time. A three-second pointer hold on a My Bookings card opens a confirmation; release/scroll cancels it. Updated callbacks avoid restarting the gesture during once-per-second clock updates. Added device tests for resets through both entry points and Keep/Delete isolation through the accessibility confirmation action. Added a device gesture test for a short release and a full three-second hold, plus a check that deletion also removes the Home card. Android tests have not run locally.
+View Details updates and persists only the selected expiry before navigation, and sets the display clock to the opening time. A two-second pointer hold on a My Bookings card opens a confirmation; release/scroll cancels it. Updated callbacks avoid restarting the gesture during once-per-second clock updates. Added device tests for resets through both entry points and Keep/Delete isolation through the accessibility confirmation action. Added a device gesture test for a short release and a full two-second hold, plus a check that deletion also removes the Home card. Android tests have not run locally.
 
-## Three-second hold and header correction
+## Two-second hold and header correction
 
-The hold threshold is now 3000ms. Delete remains available only on My Bookings cards; it removes the shared stored ticket, so Home updates too. Both Booking Details screens use a shared header with navigation blue #0166FF, a circular back button and aligned title/mobile text. Create Ticket and booking form controls use the same blue. Static parsing passed; final device alignment remains unverified.
+The hold threshold is now 2000ms. Delete remains available only on My Bookings cards; it removes the shared stored ticket, so Home updates too. Both Booking Details screens use a shared header with navigation blue #0166FF, a circular back button and aligned title/mobile text. Create Ticket and booking form controls use the same blue. Static parsing passed; final device alignment remains unverified.
 
 ## Latest test compilation fix and reference forms
 
@@ -77,3 +77,13 @@ The carousel test previously scrolled the pager into view, then assumed the sepa
 The next supplied run again passed 25/26 tests and now identifies the first post-swipe check: the expected 2 / 4 counter was absent. It does not report the actual page. The prior viewport fix did not resolve that gesture assertion.
 
 The test fixture now hides service tiles so the full carousel is visible. Instead of the generic full-width swipeLeft gesture, each swipe uses a slow 600ms drag from 75% to 25% of the viewport width at 25% of card height. This avoids the card action buttons and keeps travel shorter than one card while crossing its halfway point. All three expected page transitions and the fourth ticket's details remain required. Failure messages include the UI semantics tree to expose the actual counter/page. No application code changed. Static checks passed; emulator execution is still required.
+
+## Safe-area scrolling and editable Menu version
+
+User screenshots showed final controls underneath the gesture navigation area. ReferenceSheet now requests an edge-to-edge dialog, applies safe drawing and IME insets, sizes from the remaining BoxWithConstraints height, and gives the scroll body the remaining space with a 24dp trailing pad. The shared fix covers profile, passenger, account and preference sheets.
+
+Added a backward-compatible menuVersion profile field, version input validation and the dynamic Menu footer. Extended existing tests to check full Add/Update button height after scrolling, saving/displaying the Menu version, and legacy defaults. Local source checks pass. Actual keyboard/system-bar rendering and these updated Android tests still need a device/GitHub run.
+
+## Reference Your Details panel
+
+Replaced the name/mobile message dialog with a dedicated read-only reference sheet and edit shortcut. Added backward-compatible Post Office and City fields to profile storage and editing. Added a UI regression for viewing DOB, masked ID and postal/city values, using the edit shortcut and preserving tickets. Extended storage reload/default tests. Source syntax and static checks passed; device execution and visual matching remain unverified locally.

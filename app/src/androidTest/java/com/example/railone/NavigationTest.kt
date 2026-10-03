@@ -8,6 +8,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
@@ -92,7 +93,7 @@ class NavigationTest {
         compose.onNodeWithTag("home-ticket-${second.id}").assertDoesNotExist()
         compose.onNodeWithTag("home-ticket-${first.id}").assertIsDisplayed()
     }
-    @Test fun threeSecondHoldShowsDeleteAndEarlyReleaseDoesNot() {
+    @Test fun twoSecondHoldShowsDeleteAndEarlyReleaseDoesNot() {
         compose.onNodeWithText("My Bookings").performClick()
         val card = compose.onNodeWithTag("booking-ticket-${second.id}")
         card.performTouchInput { down(center); advanceEventTime(200); up() }
@@ -148,7 +149,8 @@ class NavigationTest {
         compose.onNode(hasSetTextAction() and hasText("DOB (dd/MM/yyyy)")).performScrollTo().performTextInput("28/12/1999")
         compose.onNodeWithContentDescription("Meal Preferences").performScrollTo().performClick()
         compose.onNodeWithText("Veg", substring = false).performClick()
-        compose.onNode(hasText("Add Passenger") and hasClickAction()).performScrollTo().performClick()
+        compose.onNode(hasText("Add Passenger") and hasClickAction()).performScrollTo()
+            .assertIsDisplayed().assertHeightIsEqualTo(48.dp).performClick()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val saved = JourneyStore(context).load().passengers.single()
         org.junit.Assert.assertEquals("Veg", saved.meal)
@@ -163,12 +165,42 @@ class NavigationTest {
         compose.onNode(hasSetTextAction() and hasText("Mobile")).performTextInput("9876543210")
         compose.onNode(hasSetTextAction() and hasText("Username")).performTextInput("traveller")
         compose.onNode(hasSetTextAction() and hasText("Email")).performScrollTo().performTextInput("traveller@example.com")
-        compose.onNodeWithText("Update", substring = false).performScrollTo().performClick()
+        compose.onNode(hasSetTextAction() and hasText("App version shown in Menu")).performScrollTo()
+            .performTextReplacement("2.5-101")
+        compose.onNodeWithText("Update", substring = false).performScrollTo()
+            .assertIsDisplayed().assertHeightIsEqualTo(48.dp).performClick()
         compose.onNodeWithText("My\nAccount").performScrollTo().performClick()
         compose.onNodeWithText("My Account").assertIsDisplayed()
         compose.onNodeWithText("traveller@example.com").assertExists()
         val context = ApplicationProvider.getApplicationContext<Context>()
         org.junit.Assert.assertEquals("traveller", JourneyStore(context).load().profile.username)
+        org.junit.Assert.assertEquals("2.5-101", JourneyStore(context).load().profile.menuVersion)
+        compose.onNodeWithContentDescription("Close My Account").performClick()
+        compose.onNodeWithText("Menu", substring = false).performClick()
+        compose.onNodeWithText("V-2.5-101").performScrollTo().assertIsDisplayed()
+    }
+    @Test fun profileViewShowsReferenceDetailsAndEditShortcut() {
+        scenario.close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val profile = UserProfile(name = "Profile Traveller", mobile = "9876543210", dob = "28/12/1999", gender = "Male",
+            idType = "Aadhaar ID/Virtual ID", idNumber = "123456789012", address1 = "Street", pin = "700114",
+            postOffice = "Panihati S.O", city = "North 24 Parganas")
+        JourneyStore(context).save(JourneyState(profile = profile, tickets = listOf(first)))
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        compose.onNodeWithText("You").performClick()
+        compose.onNodeWithText("View Details", substring = false).performClick()
+        compose.onNodeWithText("Your Details").assertIsDisplayed()
+        compose.onNodeWithText("28th December, 1999").assertIsDisplayed()
+        compose.onNodeWithText("•••• 9012").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("123456789012").assertDoesNotExist()
+        compose.onNodeWithText("Panihati S.O").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("North 24 Parganas").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("Edit your details").performScrollTo().performClick()
+        compose.onNodeWithText("Edit Your Details").assertIsDisplayed()
+        compose.onNode(hasSetTextAction() and hasText("Full Name")).performTextReplacement("Updated Traveller")
+        compose.onNodeWithText("Update", substring = false).performScrollTo().performClick()
+        org.junit.Assert.assertEquals("Updated Traveller", JourneyStore(context).load().profile.name)
+        org.junit.Assert.assertEquals(listOf(first), JourneyStore(context).load().tickets)
     }
     @Test fun homeCarouselReachesFourthTicketAndOpensItsDetails() {
         scenario.close()

@@ -60,9 +60,9 @@ internal fun ageFromDob(dob: String, fallback: String): String {
 
 @Composable
 private fun ReferenceSheet(title: String, onDismiss: () -> Unit, fraction: Float = .83f, content: @Composable ColumnScope.() -> Unit) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Box(Modifier.fillMaxSize().imePadding().navigationBarsPadding(), contentAlignment = Alignment.BottomCenter) {
-            Column(Modifier.fillMaxWidth().heightIn(max = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * fraction)
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding().imePadding(), contentAlignment = Alignment.BottomCenter) {
+            Column(Modifier.fillMaxWidth().height(maxHeight * fraction)
                 .background(Color.White, RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)).padding(horizontal = 18.dp, vertical = 18.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(title, fontSize = 20.sp, color = SheetInk, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -71,7 +71,8 @@ private fun ReferenceSheet(title: String, onDismiss: () -> Unit, fraction: Float
                     }
                 }
                 Spacer(Modifier.height(14.dp))
-                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(11.dp), content = content)
+                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(11.dp), content = content)
             }
         }
     }
@@ -182,13 +183,17 @@ internal fun ProfileDetailsSheet(profile: UserProfile, onDismiss: () -> Unit, on
     var district by rememberSaveable { mutableStateOf(profile.district) }
     var stateName by rememberSaveable { mutableStateOf(profile.stateName) }
     var country by rememberSaveable { mutableStateOf(profile.country) }
+    var postOffice by rememberSaveable { mutableStateOf(profile.postOffice) }
+    var city by rememberSaveable { mutableStateOf(profile.city) }
     var username by rememberSaveable { mutableStateOf(profile.username) }
     var email by rememberSaveable { mutableStateOf(profile.email) }
+    var menuVersion by rememberSaveable { mutableStateOf(profile.menuVersion) }
     var selector by rememberSaveable { mutableStateOf("") }
     var problem by remember { mutableStateOf<String?>(null) }
     val edited = profile.copy(name = name.trim(), mobile = mobile, dob = dob, gender = gender, idType = idType,
         idNumber = if (idType == "No Preference") "" else idNumber.trim(), address1 = address1.trim(), address2 = address2.trim(),
-        pin = pin, district = district.trim(), stateName = stateName.trim(), country = country.trim(), username = username.trim(), email = email.trim())
+        pin = pin, district = district.trim(), stateName = stateName.trim(), country = country.trim(), username = username.trim(), email = email.trim(), menuVersion = menuVersion.trim(),
+        postOffice = postOffice.trim(), city = city.trim())
     ReferenceSheet("Edit Your Details", onDismiss, .93f) {
         SheetField("Full Name", name, { name = it.take(60) })
         SheetField("Mobile", mobile, { mobile = it.filter(Char::isDigit).take(15) }, KeyboardType.Phone)
@@ -201,13 +206,17 @@ internal fun ProfileDetailsSheet(profile: UserProfile, onDismiss: () -> Unit, on
         SheetField("Address Line1", address1, { address1 = it.take(200) })
         SheetField("Address Line2", address2, { address2 = it.take(200) })
         SheetField("PIN Code", pin, { pin = it.filter(Char::isDigit).take(6) }, KeyboardType.Number)
+        SheetField("Post Office", postOffice, { postOffice = it.take(100) })
+        SheetField("City", city, { city = it.take(100) })
         SheetField("District", district, { district = it.take(80) })
         SheetField("State", stateName, { stateName = it.take(80) })
         SheetField("Country", country, { country = it.take(80) })
+        SheetField("App version shown in Menu", menuVersion, { menuVersion = it.take(40) })
         problem?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
         Button(onClick = {
             problem = when {
                 name.isBlank() || mobile.length !in 7..15 -> "Enter a name and mobile number with 7–15 digits."
+                !Regex("[0-9]+(\\.[0-9]+){0,3}([-+][A-Za-z0-9.-]+)?").matches(menuVersion.trim()) -> "Enter a version such as 1.0 or 2.1.66-237."
                 dobError(dob) != null -> dobError(dob)
                 pin.isNotBlank() && pin.length != 6 -> "PIN code must contain six digits."
                 email.isNotBlank() && !android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Enter a valid email address."
@@ -241,5 +250,48 @@ internal fun AccountSheet(profile: UserProfile, onDismiss: () -> Unit, onEdit: (
             TextButton(onClick = onEdit) { Text("Edit Details", color = SheetBlue) }
             TextButton(onClick = onDelete) { Text("Delete Account?", color = SheetBlue) }
         }
+    }
+}
+
+internal fun profileDobDisplay(value: String): String {
+    val time = parseBookingTime("$value 00:00") ?: return value.ifBlank { "Not set" }
+    val day = Calendar.getInstance().apply { timeInMillis = time }.get(Calendar.DAY_OF_MONTH)
+    val suffix = if (day in 11..13) "th" else when (day % 10) { 1 -> "st"; 2 -> "nd"; 3 -> "rd"; else -> "th" }
+    return "$day$suffix " + java.text.SimpleDateFormat("MMMM, yyyy", java.util.Locale.ENGLISH).format(java.util.Date(time))
+}
+internal fun maskedProfileId(value: String): String = when {
+    value.isBlank() -> "Not set"
+    value.length <= 4 -> "••••"
+    else -> "•••• ${value.takeLast(4)}"
+}
+@Composable
+private fun ProfileValue(label: String, value: String, savedId: Boolean = false) {
+    OutlinedTextField(value = value.ifBlank { "Not set" }, onValueChange = {}, readOnly = true,
+        label = { Text(label, fontSize = 11.sp, color = Color.Gray) }, modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp), minLines = 1, maxLines = 3,
+        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp),
+        colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Color(0xFF91D4E6), focusedBorderColor = Color(0xFF91D4E6)),
+        trailingIcon = { if (savedId) Icon(Icons.Default.CheckCircle, "ID saved locally", tint = Color(0xFF00BD54), modifier = Modifier.size(18.dp)) })
+}
+@Composable
+internal fun ProfileViewSheet(profile: UserProfile, onDismiss: () -> Unit, onEdit: () -> Unit) {
+    ReferenceSheet("Your Details", onDismiss, .93f) {
+        Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            Text(profile.name.ifBlank { "Your Profile" }, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black,
+                modifier = Modifier.widthIn(max = 240.dp))
+            IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Edit, "Edit your details", tint = SheetBlue, modifier = Modifier.size(22.dp))
+            }
+        }
+        ProfileValue("DOB", profileDobDisplay(profile.dob))
+        ProfileValue("Gender", profile.gender)
+        ProfileValue("ID Type", profile.idType)
+        ProfileValue("ID Number", maskedProfileId(profile.idNumber), savedId = profile.idNumber.isNotBlank())
+        ProfileValue("Address Line1", profile.address1)
+        ProfileValue("Address Line2", profile.address2)
+        ProfileValue("Pin Code", profile.pin)
+        ProfileValue("Post Office", profile.postOffice)
+        ProfileValue("City", profile.city.ifBlank { profile.district })
+        ProfileValue("Country", profile.country)
     }
 }
