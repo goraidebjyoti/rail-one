@@ -55,7 +55,11 @@ class NavigationTest {
         compose.onNodeWithTag("upcoming-journeys").assertDoesNotExist()
     }
     @Test fun socialHeadingStaysInPlaceWhenFactsScrollToLongestCaption() {
-        compose.onNodeWithTag("railway-facts").performScrollTo()
+        // LazyColumn has not composed this off-screen item yet. Scroll the
+        // existing parent by matcher before querying its nested facts row.
+        compose.onNodeWithTag("home-content").performScrollToNode(hasTestTag("social-heading"))
+        compose.onNodeWithTag("social-heading").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("railway-facts").assertExists()
         val rowHeight = compose.onNodeWithTag("railway-facts").fetchSemanticsNode().size.height
         val before = compose.onNodeWithTag("social-heading").fetchSemanticsNode().boundsInRoot.top
         compose.onNodeWithTag("railway-facts").performScrollToIndex(3)

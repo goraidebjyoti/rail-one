@@ -102,3 +102,7 @@ Replaced the name/mobile message dialog with a dedicated read-only reference she
 - Removed placeholder Home/You service messages and Menu information popups. Unimplemented menu actions leave the drawer open and do nothing. Storage errors and confirmations for actual edits remain.
 - Social destinations checked against published Ministry account references (PIB release 106141 for X/Facebook/YouTube and the Ministry profile listing for Instagram). Direct Instagram fetching was unavailable.
 - Static syntax, serialization, XML and CI checks passed. Browser/app launching and visual touch alignment have not been tested on a device locally.
+
+## Facts layout test scroll fix
+
+The supplied GitHub run compiled both APKs and passed 29 of 30 tests. The sole failure was the new social layout test trying to call performScrollTo on railway-facts before the outer LazyColumn had composed that off-screen item. Home now exposes a parent home-content test tag; the test scrolls that existing LazyColumn with performScrollToNode, then makes the social heading visible before comparing its position across horizontal facts scrolling. Both the row-height and heading-position assertions remain. Static checks passed; the corrected device test has not run locally.

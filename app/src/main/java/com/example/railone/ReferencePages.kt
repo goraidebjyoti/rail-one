@@ -147,7 +147,8 @@ internal fun HomePage(state: JourneyState, now: Long, onNew: () -> Unit, onBooki
     val upcoming = state.tickets.filter { it.status(now) == "Upcoming" }.sortedBy { parseBookingTime(it.data.bookedOn) }
     Column(Modifier.fillMaxSize().background(Color.White)) {
         HomeHeader(onService)
-        LazyColumn(contentPadding = PaddingValues(top = 32.dp, bottom = 28.dp)) {
+        LazyColumn(modifier = Modifier.testTag("home-content"),
+            contentPadding = PaddingValues(top = 32.dp, bottom = 28.dp)) {
             item {
                 Text(if (state.profile.name.isBlank()) "Hi, Traveller!" else "Hi, ${state.profile.name}!",
                     color = Ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 9.dp))
