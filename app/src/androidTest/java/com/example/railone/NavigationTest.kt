@@ -7,6 +7,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
@@ -174,16 +175,22 @@ class NavigationTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val third = second.copy(id = "third", data = second.data.copy(journeyTicket = "X333333333"))
         val fourth = second.copy(id = "fourth", data = second.data.copy(journeyTicket = "X444444444"))
-        JourneyStore(context).save(JourneyState(tickets = listOf(first, second, third, fourth)))
+        // Keep the complete carousel in view so this test isolates horizontal paging.
+        JourneyStore(context).save(JourneyState(tickets = listOf(first, second, third, fourth), showServices = false))
         scenario = ActivityScenario.launch(MainActivity::class.java)
         compose.onNodeWithTag("upcoming-journeys").performScrollTo()
-        // The counter is below the pager and may still be outside the viewport.
         compose.onNodeWithText("1 / 4").performScrollTo().assertIsDisplayed()
         repeat(3) { page ->
             compose.onNodeWithTag("upcoming-journeys").performScrollTo()
-            compose.onNodeWithTag("upcoming-journeys").performTouchInput { swipeLeft() }
+            compose.onNodeWithTag("upcoming-journeys").performTouchInput {
+                // Each card is narrower than the viewport. Drag more than half a
+                // card but less than a whole card, slowly, above the action buttons.
+                swipe(start = Offset(width * .75f, height * .25f),
+                    end = Offset(width * .25f, height * .25f), durationMillis = 600)
+            }
             compose.waitForIdle()
-            compose.onNodeWithText("${page + 2} / 4").assertExists()
+            compose.onNodeWithText("${page + 2} / 4").assertExists(
+                "After swipe ${page + 1}, expected page ${page + 2}. Current UI:\n${compose.onRoot().printToString()}")
         }
         compose.onNodeWithText("4 / 4").performScrollTo().assertIsDisplayed()
         compose.onNode(hasText("View Details") and hasAnyAncestor(hasTestTag("home-ticket-fourth"))).performClick()

@@ -71,3 +71,9 @@ Added reference passenger, preference, profile-edit and account bottom panels. P
 The latest supplied run compiled both application and test code, executed all 26 tests, and reported one failure in homeCarouselReachesFourthTicketAndOpensItsDetails. The other 25 tests passed. The abbreviated log identifies a visibility assertion but omits the test source line; it does not prove which assertion failed.
 
 The carousel test previously scrolled the pager into view, then assumed the separate page counter immediately below it was visible. It now scrolls each counter into view before asserting visibility, checks the expected counter after every real swipe, and scrolls the opened ticket reference into view before its final assertion. Application behavior and test expectations are unchanged. Local syntax/static checks passed; the corrected test still requires an emulator rerun.
+
+## Follow-up carousel gesture correction
+
+The next supplied run again passed 25/26 tests and now identifies the first post-swipe check: the expected 2 / 4 counter was absent. It does not report the actual page. The prior viewport fix did not resolve that gesture assertion.
+
+The test fixture now hides service tiles so the full carousel is visible. Instead of the generic full-width swipeLeft gesture, each swipe uses a slow 600ms drag from 75% to 25% of the viewport width at 25% of card height. This avoids the card action buttons and keeps travel shorter than one card while crossing its halfway point. All three expected page transitions and the fourth ticket's details remain required. Failure messages include the UI semantics tree to expose the actual counter/page. No application code changed. Static checks passed; emulator execution is still required.
