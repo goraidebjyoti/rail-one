@@ -164,13 +164,21 @@ class JourneyStoreTest {
         assertEquals(0, reloaded.secondsLeft(400000L))
         assertEquals(one.countdownEndsAt, reloaded.countdownEndsAt)
     }
-    @Test fun statusUsesValidityAndCancellationRatherThanCountdown() {
+    @Test fun statusUsesTwelveHoursFromBookedOnAndCancellationRatherThanValidityOrCountdown() {
         val one = ticket()
-        val expiry = parseBookingTime(one.data.validTill)!!
+        val expiry = parseBookingTime(one.data.bookedOn)!! + TICKET_COMPLETION_MILLIS
         assertEquals("Upcoming", one.status(expiry - 1))
         assertEquals("Completed", one.status(expiry))
+        assertEquals("Upcoming", one.copy(data = one.data.copy(validTill = "01/01/2000 00:00")).status(expiry - 1))
+        assertEquals("Completed", one.copy(data = one.data.copy(validTill = "01/01/2999 00:00")).status(expiry))
         assertEquals("Cancelled", one.copy(cancelled = true).status(expiry - 1))
         assertEquals("Cancelled", one.copy(cancelled = true).status(expiry + 1))
+    }
+    @Test fun bookingSortUsesEnteredBookingTimestampRatherThanCreationTime() {
+        val earlier = ticket(validDraft().copy(bookedOn = "03/10/2026 08:00"), created = 999999)
+        val later = ticket(validDraft().copy(bookedOn = "03/10/2026 10:00"), created = 1)
+        assertEquals(listOf(later, earlier), sortedBookings(listOf(earlier, later), true, "Booking Date"))
+        assertEquals(listOf(earlier, later), sortedBookings(listOf(later, earlier), false, "Journey Date"))
     }
     @Test fun legacyJourneysMigrateWithoutDeletingLegacyBytes() {
         val old = ticketJson(validDraft()).apply { put("id", "passenger|HOWRAH|KHARAGPUR") }

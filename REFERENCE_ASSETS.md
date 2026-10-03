@@ -262,3 +262,16 @@ All five information cards are now included. Three additional photographs were c
 ## Passenger gender artwork
 
 Three transparent gender icons are extracted from 1000153103.jpg: male [88,541,152,610], female [268,541,334,610], trans [444,539,516,611]. White background pixels were removed; UI tint indicates selection. All other bottom-panel fields, preference chips, dietary markers and close controls are rendered from app state.
+
+## Launch and bookings references
+
+| Resource | Supplied source | Extraction / derivation |
+| --- | --- | --- |
+| app_icon | 1000153272.jpg | Blue icon crop (270, 835, 652, 1216), outside black pixels made transparent; density-specific launcher copies and adaptive wrapper |
+| splash_mark | app_icon | Transparent 576px canvas with centred 296px mark, within native splash masking area |
+| launch_brand | 1000153268.jpg | Train and Rail One wordmark crop (270, 888, 657, 1139) |
+| booking_empty | 1000153343.jpg | Grey empty ticket crop (344, 874, 572, 1028) |
+| booking_sort | 1000153343.jpg | Header sort icon crop (838, 121, 901, 174) |
+| booking_filter_completed / cancelled / all | Existing booking_filter_active | Ticket fill recoloured green / red / blue; outline retained |
+
+The login layout follows 1000153271.jpg; the status colours/card layout and sorting sheet follow 1000153341.jpg, 1000153339.jpg and 1000153345.jpg. Native launcher/splash masks vary by Android version and launcher. No reference status bar or phone-specific navigation bar is embedded in these assets.

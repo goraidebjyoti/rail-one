@@ -9,6 +9,7 @@ import android.graphics.Typeface
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.FastOutLinearInEasing
@@ -226,11 +227,15 @@ internal val TicketBody = Color(0xFFFFFBFB)
 internal val GreenBg = Color(0xFFE0F2E3)
 internal val GreenText = Color(0xFF34C264)
 
-class MainActivity : ComponentActivity() {
+class MainActivity : androidx.fragment.app.FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splash = installSplashScreen()
+        val splashDeadline = android.os.SystemClock.elapsedRealtime() + 350
         super.onCreate(savedInstanceState)
+        splash.setKeepOnScreenCondition { savedInstanceState == null && android.os.SystemClock.elapsedRealtime() < splashDeadline }
+        val session = androidx.lifecycle.ViewModelProvider(this)[LoginSession::class.java]
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        setContent { RailOneApp() }
+        setContent { MaterialTheme { LaunchGate(session) } }
     }
 }
 

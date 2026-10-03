@@ -44,7 +44,7 @@ internal data class StoredTicket(
 ) {
     fun status(now: Long): String = when {
         cancelled -> "Cancelled"
-        now >= (parseBookingTime(data.validTill) ?: Long.MIN_VALUE) -> "Completed"
+        now >= (parseBookingTime(data.bookedOn) ?: createdAt) + TICKET_COMPLETION_MILLIS -> "Completed"
         else -> "Upcoming"
     }
     fun secondsLeft(now: Long): Int = ((countdownEndsAt - now + 999) / 1000)
@@ -65,6 +65,7 @@ internal fun parseBookingTime(value: String): Long? {
     val parsed = parser.parse(value, position)
     return if (parsed != null && position.index == value.length) parsed.time else null
 }
+internal const val TICKET_COMPLETION_MILLIS = 12 * 60 * 60 * 1000L
 internal const val TICKET_RETENTION_MILLIS = 24 * 60 * 60 * 1000L
 internal fun JourneyState.withoutExpiredTickets(now: Long): JourneyState {
     val retained = tickets.filter { ticket ->

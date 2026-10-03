@@ -26,6 +26,7 @@ class NavigationTest {
     @Before fun start() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences(PROFILES_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences(APP_LOCK_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
         val draft = freshDraft().copy(passengerName = "Traveller", mobile = "9876543210", origin = "HOWRAH",
             destination = "KHARAGPUR", distance = "116 km", fare = "30.00", journeyTicket = "X123456789")
         val now = System.currentTimeMillis()
@@ -33,23 +34,76 @@ class NavigationTest {
         second = StoredTicket(data = draft.copy(origin = "DELHI", destination = "AGRA", journeyTicket = "X987654321"),
             createdAt = now + 1, countdownEndsAt = now + 300000, accentIndex = 2)
         JourneyStore(context).save(JourneyState(tickets = listOf(first, second)))
+        launchHome()
+    }
+    private fun launchHome() {
         scenario = ActivityScenario.launch(MainActivity::class.java)
+        compose.waitUntil(timeoutMillis = 8_000) {
+            compose.onAllNodesWithTag("home-content").fetchSemanticsNodes().isNotEmpty()
+        }
     }
     @After fun stop() { scenario.close() }
+    @Test fun optionalLoginCanBeConfiguredAndMpinUnlocksOnlyAfterCorrectEntry() {
+        compose.onNodeWithText("You").performClick()
+        compose.onNodeWithTag("profile-content").performScrollToNode(hasText("App Login"))
+        compose.onNodeWithText("App Login").performClick()
+        compose.onNodeWithTag("login-enable").performClick()
+        compose.onNode(hasSetTextAction() and hasText("New mPIN")).performTextInput("123456")
+        compose.onNode(hasSetTextAction() and hasText("Confirm new mPIN")).performTextInput("123456")
+        compose.onNodeWithText("Save", substring = false).performScrollTo().performClick()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        compose.waitUntil(timeoutMillis = 10_000) { AppLockStore(context).config().enabled }
+        scenario.close()
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        compose.waitUntil(timeoutMillis = 8_000) { compose.onAllNodesWithTag("login-pin").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("home-content").assertDoesNotExist()
+        scenario.recreate()
+        compose.onNodeWithTag("login-pin").assertExists()
+        compose.onNodeWithTag("login-pin").performTextInput("999999")
+        compose.onNodeWithTag("login-submit").performScrollTo().performClick()
+        compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("Incorrect mPIN.").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("home-content").assertDoesNotExist()
+        compose.onNodeWithTag("login-pin").performTextReplacement("123456")
+        compose.onNodeWithTag("login-submit").performScrollTo().performClick()
+        compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithTag("home-content").fetchSemanticsNodes().isNotEmpty() }
+        org.junit.Assert.assertEquals(2, JourneyStore(context).load().tickets.size)
+        AppLockStore(context).save(false, false)
+    }
+    @Test fun bookingCardShowsTypeDateStationsAndDistanceWithoutClippingStationRow() {
+        compose.onNodeWithText("My Bookings").performClick()
+        val card = "booking-ticket-${second.id}"
+        compose.onNodeWithTag(card).performScrollTo().assertIsDisplayed()
+        listOf("Ticket Type", "JOURNEY", "Booking Date", "DELHI", "AGRA").forEach { value ->
+            compose.onNode(hasText(value, substring = false) and hasAnyAncestor(hasTestTag(card))).assertIsDisplayed()
+        }
+        compose.onNode(hasText("116 km", substring = true) and hasAnyAncestor(hasTestTag(card))).assertIsDisplayed()
+        val station = compose.onNode(hasText("DELHI", substring = false) and hasAnyAncestor(hasTestTag(card))).fetchSemanticsNode()
+        org.junit.Assert.assertEquals(station.size.height.toFloat(), station.boundsInRoot.height, 1f)
+    }
+    @Test fun bookingSortPanelAppliesFilterAndEmptyState() {
+        compose.onNodeWithText("My Bookings").performClick()
+        compose.onNodeWithContentDescription("Sort & Filters").performClick()
+        compose.onNodeWithText("Sort & Filters").assertIsDisplayed()
+        compose.onNodeWithText("Filter", substring = false).performClick()
+        compose.onNode(hasText("Completed", substring = false) and hasAnyAncestor(isDialog())).performClick()
+        compose.onNodeWithText("Apply").performScrollTo().performClick()
+        compose.onNodeWithText("No Tickets Found. Swipe down to refresh.").assertIsDisplayed()
+        compose.onNodeWithTag("booking-ticket-${first.id}").assertDoesNotExist()
+    }
     @Test fun emptyHomeHidesUpcomingSectionIncludingWhenOnlyCompletedTicketsRemain() {
         scenario.close()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val store = JourneyStore(context)
         store.save(JourneyState())
-        scenario = ActivityScenario.launch(MainActivity::class.java)
+        launchHome()
         compose.onNodeWithText("Upcoming Journey").assertDoesNotExist()
         compose.onNodeWithText("View All").assertDoesNotExist()
         compose.onNodeWithTag("upcoming-journeys").assertDoesNotExist()
         scenario.close()
         val past = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.US)
-            .format(java.util.Date(System.currentTimeMillis() - 60_000))
-        store.save(JourneyState(tickets = listOf(first.copy(data = first.data.copy(validTill = past)))))
-        scenario = ActivityScenario.launch(MainActivity::class.java)
+            .format(java.util.Date(System.currentTimeMillis() - TICKET_COMPLETION_MILLIS - 60_000))
+        store.save(JourneyState(tickets = listOf(first.copy(data = first.data.copy(bookedOn = past)))))
+        launchHome()
         compose.onNodeWithText("Upcoming Journey").assertDoesNotExist()
         compose.onNodeWithText("View All").assertDoesNotExist()
         compose.onNodeWithTag("upcoming-journeys").assertDoesNotExist()
@@ -85,7 +139,7 @@ class NavigationTest {
         first = first.copy(countdownEndsAt = 1)
         second = second.copy(countdownEndsAt = 1)
         store.save(JourneyState(tickets = listOf(first, second)))
-        scenario = ActivityScenario.launch(MainActivity::class.java)
+        launchHome()
         compose.onNodeWithText("My Bookings").performClick()
         val beforeBookings = System.currentTimeMillis()
         compose.onAllNodesWithText("View Details")[0].performClick()
@@ -218,7 +272,7 @@ class NavigationTest {
             idType = "Aadhaar ID/Virtual ID", idNumber = "123456789012", address1 = "Street", pin = "700114",
             postOffice = "Panihati S.O", city = "North 24 Parganas")
         JourneyStore(context).save(JourneyState(profile = profile, tickets = listOf(first)))
-        scenario = ActivityScenario.launch(MainActivity::class.java)
+        launchHome()
         compose.onNodeWithText("You").performClick()
         compose.onNodeWithText("View Details", substring = false).performClick()
         compose.onNodeWithText("Your Details").assertIsDisplayed()
@@ -241,7 +295,7 @@ class NavigationTest {
         val fourth = second.copy(id = "fourth", data = second.data.copy(journeyTicket = "X444444444"))
         // Keep the complete carousel in view so this test isolates horizontal paging.
         JourneyStore(context).save(JourneyState(tickets = listOf(first, second, third, fourth), showServices = false))
-        scenario = ActivityScenario.launch(MainActivity::class.java)
+        launchHome()
         compose.onNodeWithTag("upcoming-journeys").performScrollTo()
         compose.onNodeWithText("1 / 4").performScrollTo().assertIsDisplayed()
         repeat(3) { page ->

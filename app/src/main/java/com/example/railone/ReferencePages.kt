@@ -24,6 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -301,9 +303,9 @@ private fun HomeJourneyCard(ticket: StoredTicket, onView: (StoredTicket) -> Unit
     }
 }
 // Outer edge incorporates the ticket's semicircular side cutouts; border follows them.
-private fun BookingShape(): Shape = GenericShape { size, _ ->
+private fun BookingShape(footerHeightPx: Float): Shape = GenericShape { size, _ ->
     val w = size.width; val h = size.height; val corner = w * .027f; val radius = w * .047f
-    val y = h * .695f
+    val y = h - footerHeightPx
     moveTo(corner, 0f); lineTo(w - corner, 0f); quadraticBezierTo(w, 0f, w, corner)
     lineTo(w, y - radius); cubicTo(w - radius * 1.33f, y - radius, w - radius * 1.33f, y + radius, w, y + radius)
     lineTo(w, h - corner); quadraticBezierTo(w, h, w - corner, h); lineTo(corner, h)
@@ -316,10 +318,11 @@ private fun BookingCard(ticket: StoredTicket, now: Long, onView: (StoredTicket) 
     onRepeat: (StoredTicket) -> Unit, onCancel: (StoredTicket) -> Unit, onDelete: (StoredTicket) -> Unit) {
     val status = ticket.status(now)
     var menu by remember { mutableStateOf(false) }
-    val shape = remember { BookingShape() }
+    val density = LocalDensity.current
+    val shape = remember(density) { BookingShape(with(density) { 51.dp.toPx() }) }
     val deleteCallback by rememberUpdatedState(onDelete)
     val view = LocalView.current
-    Column(Modifier.fillMaxWidth().height(170.dp).clip(shape).background(Color(0xFFF6F6F6)).border(.8.dp, Orange, shape)
+    Column(Modifier.fillMaxWidth().heightIn(min = 170.dp).clip(shape).background(Color(0xFFF6F6F6)).border(.8.dp, bookingColour(status), shape)
         .testTag("booking-ticket-${ticket.id}")
         .semantics { customActions = listOf(CustomAccessibilityAction("Delete ticket") { deleteCallback(ticket); true }) }
         .pointerInput(ticket.id, view) {
@@ -343,17 +346,16 @@ private fun BookingCard(ticket: StoredTicket, now: Long, onView: (StoredTicket) 
                 } finally { view.keepScreenOn = wasKeepingScreenOn }
             }
         }) {
-        Column(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 10.dp, vertical = 7.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(color = Color(0xFFEAD9F0), shape = RoundedCornerShape(8.dp)) {
-                    Text(if (status == "Upcoming") "Unreserved" else status, color = Color(0xFFB769D0),
+                    Text("Unreserved", color = Color(0xFFB769D0),
                         fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
                 }
                 Spacer(Modifier.weight(1f))
                 Box {
                     Column(Modifier.clickable { menu = true }, horizontalAlignment = Alignment.End) {
                         Text("UTS: ${ticket.data.journeyTicket}", color = Color(0xFF282828), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Text("$status", color = Muted, fontSize = 8.sp)
                     }
                     DropdownMenu(menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(text = { Text(ticket.data.passengerName) }, onClick = { menu = false; onView(ticket) })
@@ -375,12 +377,12 @@ private fun BookingCard(ticket: StoredTicket, now: Long, onView: (StoredTicket) 
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(ticket.data.origin, modifier = Modifier.weight(1f), color = Color.Black, fontSize = 13.sp, maxLines = 2)
-                Text("— ${ticket.data.distance} —", color = Color(0xFFB3B3BD), fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp))
+                Text("— ${ticket.data.distance.trim().removeSuffix("km").trim()} km —", color = Color(0xFFB3B3BD), fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp))
                 Text(ticket.data.destination, modifier = Modifier.weight(1f), color = Color.Black, fontSize = 13.sp, textAlign = TextAlign.End, maxLines = 2)
             }
         }
         Canvas(Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 18.dp)) {
-            drawLine(Orange.copy(alpha = .65f), Offset.Zero, Offset(size.width, 0f), strokeWidth = .6.dp.toPx(),
+            drawLine(bookingColour(status).copy(alpha = .65f), Offset.Zero, Offset(size.width, 0f), strokeWidth = .6.dp.toPx(),
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 2.dp.toPx())))
         }
         Row(Modifier.fillMaxWidth().height(51.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -405,38 +407,63 @@ internal fun ReferenceBookingFilters(tickets: List<StoredTicket>, now: Long, fil
                 .border(if (selected) 1.dp else 0.dp, if (selected) Color.White else Color.Transparent, RoundedCornerShape(9.dp))
                 .clickable { onFilter(label) }.semantics { contentDescription = "$label, ${tickets.count { label == "All" || it.status(now) == label }} tickets" },
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Picture(if (selected) R.drawable.booking_filter_active else R.drawable.booking_filter_inactive, null, Modifier.size(23.dp))
-                Text(label, color = if (selected) Orange else Muted, fontSize = 12.sp)
+                Picture(if (selected) when (label) {
+                    "Completed" -> R.drawable.booking_filter_completed
+                    "Cancelled" -> R.drawable.booking_filter_cancelled
+                    "All" -> R.drawable.booking_filter_all
+                    else -> R.drawable.booking_filter_active
+                } else R.drawable.booking_filter_inactive, null, Modifier.size(23.dp))
+                Text(label, color = if (selected) bookingColour(label) else Muted, fontSize = 12.sp)
             }
         }
     }
 }
+internal fun bookingColour(status: String): Color = when (status) {
+    "Completed" -> Color(0xFF299D5A)
+    "Cancelled" -> Color(0xFFF2636A)
+    "All" -> Blue
+    else -> Orange
+}
+// Unreserved tickets have no separately scheduled journey date: their Booked On
+// timestamp is also their journey timestamp.
+internal fun sortedBookings(tickets: List<StoredTicket>, newestFirst: Boolean, sortBy: String): List<StoredTicket> {
+    val comparator = compareBy<StoredTicket> {
+        when (sortBy) {
+            "Journey Date" -> parseBookingTime(it.data.bookedOn) ?: it.createdAt
+            else -> parseBookingTime(it.data.bookedOn) ?: it.createdAt
+        }
+    }.thenBy { it.createdAt }.thenBy { it.id }
+    return tickets.sortedWith(if (newestFirst) comparator.reversed() else comparator)
+}
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun BookingsPage(tickets: List<StoredTicket>, now: Long, filter: String, newestFirst: Boolean,
     onFilter: (String) -> Unit, onSort: () -> Unit, onNew: () -> Unit,
     onView: (StoredTicket) -> Unit, onRepeat: (StoredTicket) -> Unit, onCancel: (StoredTicket) -> Unit, onRefresh: () -> Unit, onBack: () -> Unit,
-    onDelete: (StoredTicket) -> Unit = {}) {
+    onDelete: (StoredTicket) -> Unit = {}, sortBy: String = "Booking Date") {
     val matching = tickets.filter { filter == "All" || it.status(now) == filter }
-    val sorted = if (newestFirst) matching.sortedByDescending { it.createdAt } else matching.sortedBy { it.createdAt }
+    val sorted = sortedBookings(matching, newestFirst, sortBy)
     Column(Modifier.fillMaxSize().background(Color.White)) {
         Row(Modifier.fillMaxWidth().background(Blue).statusBarsPadding().height(68.dp).padding(horizontal = 13.dp), verticalAlignment = Alignment.CenterVertically) {
             CircleBack(onBack, true)
             Text("My Bookings", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f).padding(start = 18.dp))
-            IconButton(onClick = onSort) { Icon(Icons.Default.Sort, "Toggle newest or oldest first", tint = Color.White) }
+            IconButton(onClick = onSort) { Picture(R.drawable.booking_sort, "Sort & Filters", Modifier.size(24.dp)) }
         }
-        Row(Modifier.fillMaxWidth().height(42.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (sorted.isNotEmpty()) Row(Modifier.fillMaxWidth().height(42.dp), verticalAlignment = Alignment.CenterVertically) {
             Spacer(Modifier.width(42.dp))
-            Text("$filter (${matching.size})", color = Orange, fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+            Text("$filter (${matching.size})", color = bookingColour(filter), fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
             IconButton(onClick = onRefresh) { Icon(Icons.Default.Sync, "Refresh bookings", tint = Muted, modifier = Modifier.size(21.dp)) }
         }
-        LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            if (sorted.isEmpty()) item {
-                Column(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("No ${filter.lowercase(Locale.ROOT)} tickets", color = Muted, fontSize = 13.sp)
-                    TextButton(onClick = onNew) { Text("New Ticket") }
+        PullToRefreshBox(isRefreshing = false, onRefresh = onRefresh, modifier = Modifier.weight(1f).fillMaxWidth()) {
+            if (sorted.isEmpty()) Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.Center) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Picture(R.drawable.booking_empty, null, Modifier.width(90.dp).height(60.dp))
+                    Spacer(Modifier.height(18.dp))
+                    Text("No Tickets Found. Swipe down to refresh.", color = Color(0xFFB0B0B0), fontSize = 13.sp, textAlign = TextAlign.Center)
                 }
+            } else LazyColumn(modifier = Modifier.fillMaxSize().testTag("bookings-list"), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                items(sorted, key = { it.id }) { BookingCard(it, now, onView, onRepeat, onCancel, onDelete) }
             }
-            items(sorted, key = { it.id }) { BookingCard(it, now, onView, onRepeat, onCancel, onDelete) }
         }
     }
 }
@@ -466,11 +493,7 @@ private fun AccountTile(label: String, resource: Int?, color: Color, modifier: M
     Column(modifier.height(100.dp).background(color, RoundedCornerShape(10.dp)).clickable(onClick = onClick).padding(top = 14.dp, bottom = 9.dp),
         horizontalAlignment = Alignment.CenterHorizontally) {
         if (resource != null) Picture(resource, null, Modifier.size(31.dp)) else {
-            Row(Modifier.height(26.dp).width(49.dp).border(1.dp, Blue, CircleShape).padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Off", color = Blue, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Box(Modifier.size(18.dp).background(Blue, CircleShape))
-            }
+            Icon(Icons.Default.Fingerprint, null, tint = Blue, modifier = Modifier.size(32.dp))
             Spacer(Modifier.height(5.dp))
         }
         Spacer(Modifier.height(7.dp))
@@ -483,8 +506,10 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
     onEditPassenger: (Passenger) -> Unit, onDeletePassenger: (Passenger) -> Unit,
     onNewTemplate: () -> Unit, onEditTemplate: (SavedJourney) -> Unit,
     onUseTemplate: (SavedJourney) -> Unit, onDeleteTemplate: (SavedJourney) -> Unit,
-    onPhoto: () -> Unit = {}, onRemovePhoto: () -> Unit = {}, onWalletAdd: () -> Unit = {}, onWalletRefresh: () -> Unit = {}, onAccount: () -> Unit = onProfile) {
-    LazyColumn(Modifier.fillMaxSize().background(Color.White), contentPadding = PaddingValues(bottom = 24.dp)) {
+    onPhoto: () -> Unit = {}, onRemovePhoto: () -> Unit = {}, onWalletAdd: () -> Unit = {}, onWalletRefresh: () -> Unit = {}, onAccount: () -> Unit = onProfile,
+    loginEnabled: Boolean = false, biometricEnabled: Boolean = false, onLoginSettings: () -> Unit = {}) {
+    var templatesExpanded by rememberSaveable { mutableStateOf(false) }
+    LazyColumn(Modifier.fillMaxSize().background(Color.White).testTag("profile-content"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Column(Modifier.fillMaxWidth().background(PaleBlue, RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
                 .statusBarsPadding().padding(top = 26.dp, bottom = 20.dp)) {
@@ -569,7 +594,7 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
                 Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     AccountTile("Change\nPassword", R.drawable.profile_password, PaleBlue, Modifier.weight(1f)) { onService("Change password") }
                     AccountTile("My\nAccount", R.drawable.profile_account, Color(0xFFE9FFE9), Modifier.weight(1f), onAccount)
-                    AccountTile("Biometric", null, Color(0xFFFFF6FC), Modifier.weight(1f)) { onService("Biometric login") }
+                    AccountTile("Biometric", null, Color(0xFFFFF6FC), Modifier.weight(1f), onLoginSettings)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     AccountTile("Transfer\nTicket", R.drawable.profile_transfer, Color(0xFFF0F8FC), Modifier.weight(1f)) { onService("Ticket transfer") }
@@ -579,15 +604,19 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
             }
         }
         item {
-            Spacer(Modifier.height(30.dp))
-            Row(Modifier.padding(horizontal = 17.dp), verticalAlignment = Alignment.CenterVertically) {
-                Heading("Saved Journey Templates", Modifier.weight(1f))
-                TextButton(onClick = onNewTemplate) { Text("Add", fontSize = 12.sp) }
+            Spacer(Modifier.height(22.dp))
+            ProfileOptionCard("App Login", if (loginEnabled) if (biometricEnabled) "Enabled · mPIN and device biometrics" else "Enabled · mPIN" else "Off · set a six-digit mPIN", Icons.Default.Lock, PaleBlue, onLoginSettings)
+            Spacer(Modifier.height(12.dp))
+            ProfileOptionCard("Saved Journey Templates", "${state.templates.size} saved · tap to ${if (templatesExpanded) "hide" else "open"}", Icons.Default.Bookmark, PaleViolet) { templatesExpanded = !templatesExpanded }
+            if (templatesExpanded) {
+                Row(Modifier.padding(horizontal = 17.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Reusable journey details", color = Ink, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onNewTemplate) { Text("Add", fontSize = 12.sp) }
+                }
+                if (state.templates.isEmpty()) Text("No saved templates.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(17.dp))
             }
-            Text("Edit reusable details here; existing tickets stay unchanged.", fontSize = 11.sp, color = Muted, modifier = Modifier.padding(horizontal = 17.dp))
-            if (state.templates.isEmpty()) Text("No saved templates.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(17.dp))
         }
-        items(state.templates, key = { it.id }) { template ->
+        if (templatesExpanded)        items(state.templates, key = { it.id }) { template ->
             Column(Modifier.padding(horizontal = 17.dp, vertical = 6.dp).fillMaxWidth().background(PaleViolet, RoundedCornerShape(12.dp)).padding(14.dp)) {
                 Text(template.passengerName, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Text("${template.origin} → ${template.destination}", color = Ink, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
@@ -598,6 +627,18 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
                 }
             }
         }
+    }
+}
+@Composable
+private fun ProfileOptionCard(title: String, subtitle: String, icon: ImageVector, colour: Color, onClick: () -> Unit) {
+    Row(Modifier.padding(horizontal = 17.dp).fillMaxWidth().background(colour, RoundedCornerShape(14.dp))
+        .clickable(onClick = onClick).padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = Blue, modifier = Modifier.size(32.dp))
+        Column(Modifier.weight(1f).padding(start = 14.dp)) {
+            Text(title, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
+        }
+        Icon(Icons.Default.ChevronRight, null, tint = Blue)
     }
 }
 @Composable

@@ -44,7 +44,7 @@ private val Ice = Color(0xFFE2F8FD)
 private val Lavender = Color(0xFFF0ECFF)
 
 @Composable
-internal fun RailOneApp() {
+internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean = false, onLoginSettings: () -> Unit = {}) {
     val context = LocalContext.current
     val store = remember { JourneyStore(context) }
     val loaded = remember { runCatching { store.load() } }
@@ -53,6 +53,8 @@ internal fun RailOneApp() {
     var tab by rememberSaveable { mutableStateOf("Home") }
     var page by rememberSaveable { mutableStateOf("Main") }
     var bookingsFilter by rememberSaveable { mutableStateOf("Upcoming") }
+    var bookingsSortOpen by rememberSaveable { mutableStateOf(false) }
+    var bookingsSortBy by rememberSaveable { mutableStateOf("Booking Date") }
     var bookingsNewestFirst by rememberSaveable { mutableStateOf(true) }
     var returnTab by rememberSaveable { mutableStateOf("Home") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -253,10 +255,10 @@ internal fun RailOneApp() {
                                 })
                             "My Bookings" -> BookingsPage(state.tickets, now,
                                 filter = bookingsFilter, newestFirst = bookingsNewestFirst,
-                                onFilter = { bookingsFilter = it }, onSort = { bookingsNewestFirst = !bookingsNewestFirst }, onNew = { edit(freshDraft()) },
+                                onFilter = { bookingsFilter = it }, onSort = { bookingsSortOpen = true }, onNew = { edit(freshDraft()) },
                                 onView = { openTicket(it) }, onRepeat = { edit(renewedDraft(it.data)) },
                                 onCancel = { confirm = "cancel" to it.id }, onRefresh = { refreshData() }, onBack = { tab = "Home" },
-                                onDelete = { confirm = "ticket" to it.id })
+                                onDelete = { confirm = "ticket" to it.id }, sortBy = bookingsSortBy)
                             "You" -> ProfilePage(state, onRefreshPassengers = { refreshData() }, onBack = { tab = "Home" },
                                 onPhoto = { if (!photoBusy) runCatching { photoPicker.launch("image/*") }.onFailure { notify("No image picker available") } },
                                 onRemovePhoto = {
@@ -269,7 +271,7 @@ internal fun RailOneApp() {
                                 onViewProfile = { profileViewing = true },
                                 onService = { /* Service not implemented. */ },
                                 onTransactions = { tab = "My Bookings"; bookingsFilter = "All" }, onProfile = { profileEditing = true },
-                                onAccount = { accountOpen = true },
+                                onAccount = { accountOpen = true }, loginEnabled = loginEnabled, biometricEnabled = biometricEnabled, onLoginSettings = onLoginSettings,
                                 onAddPassenger = { passengerEditingId = UUID.randomUUID().toString() },
                                 onEditPassenger = { passengerEditingId = it.id },
                                 onDeletePassenger = { confirm = "passenger" to it.id },
@@ -296,6 +298,9 @@ internal fun RailOneApp() {
                 runCatching { context.startActivity(Intent.createChooser(intent, "Share app description")) }
                     .onFailure { notify("No sharing app available") }
             })
+        if (bookingsSortOpen) BookingsSortSheet(bookingsSortBy, bookingsFilter, { bookingsSortOpen = false }) { sort, filter ->
+            bookingsSortBy = sort; bookingsFilter = filter; bookingsSortOpen = false
+        }
         if (pendingDiscard) AlertDialog(onDismissRequest = { pendingDiscard = false },
             title = { Text("Discard draft changes?") },
             text = { Text("The changes in this booking form have not been saved as a ticket or template.") },

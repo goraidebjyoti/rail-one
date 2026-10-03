@@ -59,7 +59,7 @@ internal fun ageFromDob(dob: String, fallback: String): String {
 }
 
 @Composable
-private fun ReferenceSheet(title: String, onDismiss: () -> Unit, fraction: Float = .83f, content: @Composable ColumnScope.() -> Unit) {
+internal fun ReferenceSheet(title: String, onDismiss: () -> Unit, fraction: Float = .83f, content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding().imePadding(), contentAlignment = Alignment.BottomCenter) {
             Column(Modifier.fillMaxWidth().height(maxHeight * fraction)
@@ -293,5 +293,34 @@ internal fun ProfileViewSheet(profile: UserProfile, onDismiss: () -> Unit, onEdi
         ProfileValue("Post Office", profile.postOffice)
         ProfileValue("City", profile.city.ifBlank { profile.district })
         ProfileValue("Country", profile.country)
+    }
+}
+
+@Composable
+internal fun BookingsSortSheet(sortBy: String, filter: String, onDismiss: () -> Unit, onApply: (String, String) -> Unit) {
+    var section by remember { mutableStateOf("Sort By") }
+    var selectedSort by remember { mutableStateOf(sortBy) }
+    var selectedFilter by remember { mutableStateOf(filter) }
+    ReferenceSheet("Sort & Filters", onDismiss, fraction = .45f) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            listOf("Sort By", "Filter").forEach { label ->
+                FilterChip(selected = section == label, onClick = { section = label }, label = { Text(label) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0xFF0166FF), selectedLabelColor = Color.White), shape = CircleShape)
+            }
+        }
+        if (section == "Sort By") Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            listOf("Journey Date", "Booking Date").forEach { label ->
+                FilterChip(selected = selectedSort == label, onClick = { selectedSort = label }, label = { Text(label) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0xFF0166FF), selectedLabelColor = Color.White), shape = CircleShape)
+            }
+        } else Column {
+            listOf("Upcoming", "Completed", "Cancelled", "All").forEach { label ->
+                FilterChip(selected = selectedFilter == label, onClick = { selectedFilter = label }, label = { Text(label) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = bookingColour(label), selectedLabelColor = Color.White), shape = CircleShape)
+            }
+        }
+        Spacer(Modifier.height(18.dp))
+        Button(onClick = { onApply(selectedSort, selectedFilter) }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0166FF))) { Text("Apply", fontSize = 18.sp) }
     }
 }

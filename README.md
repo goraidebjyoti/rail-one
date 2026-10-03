@@ -40,13 +40,13 @@ The fully renamed package is `com.example.railone`, and storage uses `rail_one_p
 
 Malformed stored data blocks normal editing and leaves the data untouched. Save errors do not report success. No cloud account or sync is present; uninstalling or clearing app data removes local content.
 
-The five-minute visual countdown resets whenever a ticket is opened through View Details on Home or My Bookings. Its new expiry is saved; activity recreation continues that countdown. It is separate from Valid Till. Upcoming means Valid Till has not passed; Completed means it has. Cancelled is an explicit local status, with no railway cancellation or refund. Times use the device timezone and clock.
+The five-minute visual countdown resets whenever a ticket is opened through View Details on Home or My Bookings. Its new expiry is saved; activity recreation continues that countdown. It is separate from Valid Till. Upcoming means fewer than 12 hours have passed since Booked On; Completed starts at Booked On plus 12 hours, irrespective of Valid Till. Cancelled is an explicit local status, with no railway cancellation or refund. Times use the device timezone and clock.
 
 Booking drafts, navigation selection and form-dialog inputs use saved instance state for activity recreation and OS-managed process restoration. Closing the app without restored instance state does not guarantee recovery of an unfinished draft. Persisted tickets and templates remain available.
 
 ## Reference screenshots
 
-The new pages use measured reference colours (including navigation blue #0166FF, text #0C2065, profile blue #E2F9FF and peach #FFF1E4), screenshot-derived artwork, and spacing based on a 360dp / 921px design canvas. Home includes the actual planner illustrations, eight offering tiles, five swipeable railway fact cards and the social banner. My Bookings uses orange ticket outlines with side cutouts and a bottom filter bar. You follows the reference avatar/profile/wallet/passenger/account arrangement; reusable journey templates are placed below the reference account grid. Menu is a right-side drawer over a darkened existing page, with the reference's icon artwork and entry order.
+The new pages use measured reference colours (including navigation blue #0166FF, text #0C2065, profile blue #E2F9FF and peach #FFF1E4), screenshot-derived artwork, and spacing based on a 360dp / 921px design canvas. Home includes the actual planner illustrations, eight offering tiles, five swipeable railway fact cards and the social banner. My Bookings uses status-coloured ticket outlines with side cutouts and a bottom filter bar. You follows the reference avatar/profile/wallet/passenger/account arrangement; reusable journey templates are placed below the reference account grid. Menu is a right-side drawer over a darkened existing page, with the reference's icon artwork and entry order.
 
 Names, dates, ticket references, balances and counts are rendered from app state rather than baked into screenshots. The wallet displays a clearly marked local balance. Disconnected service, biometric, account-authentication, transfer, refund and Aadhaar controls explain their status when tapped. Social accounts/links have not been supplied. The five facts use the captions and images from the supplied references; they are static reference content.
 
@@ -114,3 +114,21 @@ Tickets are automatically removed 24 hours after the editable Booked On timestam
 Home hides the entire Upcoming Journey section (heading, View All and cards) when there are no upcoming tickets. The facts carousel reserves space for the longest caption at the current font scale, so scrolling to Hubballi does not move the social heading or banner.
 
 The X, Facebook, Instagram and YouTube logos in the social banner each open the Ministry of Railways account in an installed app or browser. Tapping other artwork in the banner does nothing. Unimplemented services and menu actions do nothing when tapped; they no longer show placeholder information dialogs. Ticket creation, bookings, passengers, profile editing, wallet editing, sharing and Show/Hide Services retain their implemented actions.
+
+## Launch and optional login
+
+The blue train mark is the launcher icon and appears on a black native launch screen. A white Rail One brand screen follows, with the logo growing then shrinking. Login is off by default, so the animation normally opens Home.
+
+In You, the App Login card sits directly above the Saved Journey Templates card. Open App Login, activate the login page, enter and confirm a six-digit mPIN, optionally enable enrolled device biometrics, then Save. Login settings require the current mPIN when changing or disabling an existing lock. The Biometric tile opens the same settings. A cold app launch then requires mPIN or the Android biometric prompt. Rotation preserves the current session; a fresh process requires authentication again. The lock gates the local app and does not sign into a remote railway account.
+
+The mPIN is stored as a salted PBKDF2 verifier, never as plaintext, in separate preferences excluded from cloud/device-transfer backups. Five wrong attempts pause PIN verification for 30 seconds. Reset mPIN requires the device's screen-lock credential before choosing a new mPIN. A device without a screen lock cannot use that recovery route. No remote password or alternate-user account is configured, so Forgot Password and Different User are inactive, as requested for unimplemented controls.
+
+## Bookings updates
+
+Cards show Unreserved, UTS reference, ticket type, booking date, source, distance in km, destination and the Book Again/View Details actions. They expand to fit text instead of clipping the station row. Upcoming is orange, Completed green, Cancelled red and All blue; cards in All retain their individual status outline.
+
+Tickets become Completed exactly 12 hours after Booked On regardless of Valid Till, and are still automatically removed at 24 hours. Cancelled remains an explicit status until removal. Empty filters show the grey ticket illustration and "No Tickets Found. Swipe down to refresh." Pulling down refreshes storage.
+
+The header's reference sort icon opens Sort & Filters, with Sort By / Filter sections, Journey Date / Booking Date choices and Apply. The Filter section selects Upcoming, Completed, Cancelled or All. Sorting uses the entered timestamp rather than the time the record was saved. For these unreserved tickets the journey date is the booked date, so the two date choices currently produce the same chronological order. The original newest-first ordering is retained.
+
+Saved Journey Templates is now a boxed option with an icon; tap it to expand or collapse the saved templates and their existing Add/Use/Edit/Delete controls.
