@@ -66,14 +66,6 @@ internal fun parseBookingTime(value: String): Long? {
     return if (parsed != null && position.index == value.length) parsed.time else null
 }
 internal const val TICKET_COMPLETION_MILLIS = 12 * 60 * 60 * 1000L
-internal const val TICKET_RETENTION_MILLIS = 24 * 60 * 60 * 1000L
-internal fun JourneyState.withoutExpiredTickets(now: Long): JourneyState {
-    val retained = tickets.filter { ticket ->
-        val bookedAt = parseBookingTime(ticket.data.bookedOn) ?: ticket.createdAt
-        now < bookedAt + TICKET_RETENTION_MILLIS
-    }
-    return if (retained.size == tickets.size) this else copy(tickets = retained)
-}
 internal fun freshDraft(): TicketData {
     val now = currentDateTimeString()
     return TicketData("", "", "", "", "", toTicketDisplayDateTime(now), "", "1", "0", now,
@@ -182,9 +174,7 @@ internal class JourneyStore(private val context: Context) {
                 it.optString("postOffice"), it.optString("city")) },
             showServices = j.getBoolean("showServices"),
             walletPaise = j.optLong("walletPaise", 0).also { require(it in 0..MAX_WALLET_PAISE) })
-        val retained = stored.withoutExpiredTickets(now)
-        if (retained != stored) check(save(retained)) { "Unable to remove expired tickets" }
-        return retained
+        return stored
     }
     fun save(state: JourneyState): Boolean {
         val json = JSONObject().apply {

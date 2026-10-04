@@ -74,7 +74,7 @@ private val Orange = Color(0xFFEBA95F)
 private val Muted = Color(0xFF8B8B94)
 private val MenuViolet = Color(0xFF9288F4)
 private val NavMuted = Color(0xFF99BCEB)
-internal const val TICKET_DELETE_HOLD_MILLIS = 2000L
+internal const val TICKET_DELETE_HOLD_MILLIS = 1000L
 
 @Composable
 private fun Picture(resource: Int, description: String?, modifier: Modifier = Modifier, scale: ContentScale = ContentScale.Fit) {
@@ -182,7 +182,7 @@ internal fun HomePage(state: JourneyState, now: Long, onNew: () -> Unit, onBooki
                 Spacer(Modifier.height(32.dp))
                 Row(Modifier.padding(horizontal = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                     Heading("Upcoming Journey", Modifier.weight(1f))
-                    Text("View All", fontSize = 11.sp, color = Blue, modifier = Modifier.clickable(onClick = onBookings).padding(vertical = 4.dp))
+                    if (upcoming.size > 1) Text("View All", fontSize = 11.sp, color = Blue, modifier = Modifier.clickable(onClick = onBookings).padding(vertical = 4.dp))
                 }
                 Spacer(Modifier.height(14.dp))
 
@@ -331,7 +331,7 @@ private fun BookingCard(ticket: StoredTicket, now: Long, onView: (StoredTicket) 
                 val wasKeepingScreenOn = view.keepScreenOn
                 view.keepScreenOn = true
                 try {
-                    // A release or scroll cancels the hold. Only a full two-second hold triggers it.
+                    // A release or scroll cancels the hold. Only a full one-second hold triggers it.
                     val finished = withTimeoutOrNull(TICKET_DELETE_HOLD_MILLIS) {
                         waitForUpOrCancellation()
                         true
@@ -346,16 +346,16 @@ private fun BookingCard(ticket: StoredTicket, now: Long, onView: (StoredTicket) 
                 } finally { view.keepScreenOn = wasKeepingScreenOn }
             }
         }) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp)) {
+        Column(Modifier.fillMaxWidth().heightIn(min = 119.dp).padding(horizontal = 10.dp, vertical = 7.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(color = Color(0xFFEAD9F0), shape = RoundedCornerShape(8.dp)) {
                     Text("Unreserved", color = Color(0xFFB769D0),
-                        fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
+                        fontWeight = FontWeight.Bold, fontSize = 12.sp, lineHeight = 14.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp))
                 }
                 Spacer(Modifier.weight(1f))
                 Box {
                     Column(Modifier.clickable { menu = true }, horizontalAlignment = Alignment.End) {
-                        Text("UTS: ${ticket.data.journeyTicket}", color = Color(0xFF282828), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("UTS: ${ticket.data.journeyTicket}", color = Color(0xFF282828), fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold)
                     }
                     DropdownMenu(menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(text = { Text(ticket.data.passengerName) }, onClick = { menu = false; onView(ticket) })
@@ -366,23 +366,23 @@ private fun BookingCard(ticket: StoredTicket, now: Long, onView: (StoredTicket) 
             Spacer(Modifier.height(12.dp))
             Row {
                 Column(Modifier.weight(1f)) {
-                    Text("Ticket Type", color = Color(0xFFB0B0B0), fontSize = 12.sp)
-                    Text(ticket.data.ticketType, color = Color(0xFF282828), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Ticket Type", color = Color(0xFFB0B0B0), fontSize = 12.sp, lineHeight = 14.sp)
+                    Text(ticket.data.ticketType, color = Color(0xFF282828), fontSize = 12.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Booking Date", color = Color(0xFFB0B0B0), fontSize = 12.sp)
-                    Text(referenceDate(ticket.data), color = Color(0xFF282828), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Booking Date", color = Color(0xFFB0B0B0), fontSize = 12.sp, lineHeight = 14.sp)
+                    Text(referenceDate(ticket.data), color = Color(0xFF282828), fontSize = 12.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(ticket.data.origin, modifier = Modifier.weight(1f), color = Color.Black, fontSize = 13.sp, maxLines = 2)
+                Text(ticket.data.origin, modifier = Modifier.weight(1f), color = Color.Black, fontSize = 13.sp, lineHeight = 16.sp, maxLines = 2)
                 Text("— ${ticket.data.distance.trim().removeSuffix("km").trim()} km —", color = Color(0xFFB3B3BD), fontSize = 10.sp, modifier = Modifier.padding(horizontal = 6.dp))
-                Text(ticket.data.destination, modifier = Modifier.weight(1f), color = Color.Black, fontSize = 13.sp, textAlign = TextAlign.End, maxLines = 2)
+                Text(ticket.data.destination, modifier = Modifier.weight(1f), color = Color.Black, fontSize = 13.sp, lineHeight = 16.sp, textAlign = TextAlign.End, maxLines = 2)
             }
         }
-        Canvas(Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 18.dp)) {
-            drawLine(bookingColour(status).copy(alpha = .65f), Offset.Zero, Offset(size.width, 0f), strokeWidth = .6.dp.toPx(),
+        Canvas(Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 15.dp)) {
+            drawLine(bookingColour(status), Offset.Zero, Offset(size.width, 0f), strokeWidth = .8.dp.toPx(),
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 2.dp.toPx())))
         }
         Row(Modifier.fillMaxWidth().height(51.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -507,7 +507,7 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
     onNewTemplate: () -> Unit, onEditTemplate: (SavedJourney) -> Unit,
     onUseTemplate: (SavedJourney) -> Unit, onDeleteTemplate: (SavedJourney) -> Unit,
     onPhoto: () -> Unit = {}, onRemovePhoto: () -> Unit = {}, onWalletAdd: () -> Unit = {}, onWalletRefresh: () -> Unit = {}, onAccount: () -> Unit = onProfile,
-    loginEnabled: Boolean = false, biometricEnabled: Boolean = false, onLoginSettings: () -> Unit = {}) {
+    loginEnabled: Boolean = false, biometricEnabled: Boolean = false, onLoginSettings: () -> Unit = {}, onBiometricToggle: () -> Unit = {}) {
     var templatesExpanded by rememberSaveable { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize().background(Color.White).testTag("profile-content"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
@@ -580,7 +580,7 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
                                     }
                                 }
                             }
-                            Text(listOf(ageFromDob(passenger.dob, passenger.age).takeIf { it.isNotBlank() }?.let { "$it Y" }, passenger.gender, passenger.berth, normalMeal(passenger.meal)).filterNotNull().joinToString(", "),
+                            Text(passengerSummary(passenger),
                                 color = Muted, fontSize = 10.sp, lineHeight = 14.sp, modifier = Modifier.padding(top = 7.dp))
                         }
                         IconButton(onClick = { onEditPassenger(passenger) }, modifier = Modifier.size(25.dp)) { Icon(Icons.Default.Edit, "Edit ${passenger.name}", tint = Gold, modifier = Modifier.size(18.dp)) }
@@ -594,7 +594,7 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
                 Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     AccountTile("Change\nPassword", R.drawable.profile_password, PaleBlue, Modifier.weight(1f)) { onService("Change password") }
                     AccountTile("My\nAccount", R.drawable.profile_account, Color(0xFFE9FFE9), Modifier.weight(1f), onAccount)
-                    AccountTile("Biometric", null, Color(0xFFFFF6FC), Modifier.weight(1f), onLoginSettings)
+                    BiometricTile(biometricEnabled, Modifier.weight(1f), onBiometricToggle)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     AccountTile("Transfer\nTicket", R.drawable.profile_transfer, Color(0xFFF0F8FC), Modifier.weight(1f)) { onService("Ticket transfer") }
@@ -682,5 +682,32 @@ internal fun MenuDrawer(state: JourneyState, onDismiss: () -> Unit, onProfile: (
                 Text("V-${state.profile.menuVersion}", color = Color(0xFFA8A8A8), fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 28.dp, bottom = 36.dp))
             }
         }
+    }
+}
+
+internal fun passengerSummary(passenger: Passenger): String {
+    val gender = when (passenger.gender) { "Male" -> "M"; "Female" -> "F"; "Trans", "Trans Gender", "Transgender" -> "T"; else -> passenger.gender }
+    val berth = when (passenger.berth) {
+        "No Preference" -> "NC"; "Lower" -> "LB"; "Middle" -> "MB"; "Upper" -> "UB"
+        "Side Lower" -> "SL"; "Side Middle" -> "SM"; "Side Upper" -> "SU"; "Window Side" -> "WS"; "Coupe" -> "CP"
+        else -> passenger.berth
+    }
+    return listOf(ageFromDob(passenger.dob, passenger.age).takeIf { it.isNotBlank() }?.let { "$it Y" }, gender, berth)
+        .filterNotNull().joinToString(", ") + " | " + normalMeal(passenger.meal)
+}
+@Composable
+private fun BiometricTile(enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val colour = if (enabled) Blue else Color(0xFF808189)
+    val thumb by androidx.compose.animation.core.animateDpAsState(if (enabled) 30.dp else 0.dp, label = "biometric thumb")
+    Column(modifier.height(100.dp).background(Color(0xFFFFF6FC), RoundedCornerShape(10.dp))
+        .clickable(onClick = onClick).padding(top = 26.dp, bottom = 9.dp)
+        .semantics { contentDescription = "Biometric ${if (enabled) "On" else "Off"}" }, horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.width(48.dp).height(19.dp).background(Color.White, CircleShape).border(.9.dp, colour, CircleShape)) {
+            Text(if (enabled) "On" else "Off", color = colour, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(if (enabled) Alignment.CenterStart else Alignment.CenterEnd).padding(horizontal = 4.dp))
+            Box(Modifier.offset(x = thumb).size(18.dp).background(colour, CircleShape))
+        }
+        Spacer(Modifier.height(7.dp))
+        Text("Biometric", color = Ink, fontSize = 13.sp, lineHeight = 17.sp)
     }
 }

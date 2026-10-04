@@ -114,7 +114,10 @@ internal fun LaunchGate(session: LoginSession) {
                     if (intent != null) runCatching { recoveryLauncher.launch(intent) }.onFailure { error = "Device verification is unavailable." }
                 }
             })
-    } else RailOneApp(config.enabled, config.biometric) { settingsOpen = true }
+    } else RailOneApp(config.enabled, config.biometric, onLoginSettings = { settingsOpen = true }, onBiometricToggle = {
+        if (!config.enabled || (!config.biometric && !available)) settingsOpen = true
+        else if (store.save(config.enabled, !config.biometric)) config = store.config()
+    })
     if (settingsOpen || recovery) LoginSettingsSheet(store, config, available, recovery,
         onDismiss = { settingsOpen = false; recovery = false }, onSaved = {
             config = store.config(); settingsOpen = false

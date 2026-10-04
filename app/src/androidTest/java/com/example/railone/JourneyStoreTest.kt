@@ -28,24 +28,22 @@ class JourneyStoreTest {
         data = draft.copy(journeyTicket = generateJourneyTicket()), createdAt = created,
         countdownEndsAt = created + 300_000, accentIndex = 1)
 
-    @Test fun ticketsExpireAtBookedOnPlus24HoursAndCleanupPersists() {
-        val one = ticket(created = testNow + TICKET_RETENTION_MILLIS * 3)
-        val bookedAt = parseBookingTime(one.data.bookedOn)!!
-        val future = ticket(validDraft().copy(bookedOn = "05/10/2026 09:00"))
-        val invalid = ticket(validDraft().copy(bookedOn = "invalid"), created = bookedAt)
-        val original = JourneyState(tickets = listOf(one, future, invalid),
-            passengers = listOf(Passenger(name = "Kept", mobile = "")),
-            templates = listOf(templateFromDraft(one.data)), profile = UserProfile(name = "Kept"), walletPaise = 1234)
+    @Test fun completedTicketsRemainSavedAfter24HoursAndAcrossReloads() {
+        val one = ticket()
+        val original = JourneyState(tickets = listOf(one, one.copy(id = "cancelled", cancelled = true)))
         assertTrue(store.save(original))
-        assertEquals(original, store.load(bookedAt + TICKET_RETENTION_MILLIS - 1))
-        val cleaned = store.load(bookedAt + TICKET_RETENTION_MILLIS)
-        assertEquals(original.copy(tickets = listOf(future)), cleaned)
-        assertEquals(cleaned, store.load(bookedAt + TICKET_RETENTION_MILLIS))
-        assertEquals(emptyList<StoredTicket>(), original.copy(tickets = listOf(one.copy(cancelled = true)))
-            .withoutExpiredTickets(bookedAt + TICKET_RETENTION_MILLIS).tickets)
-        // Opening details and resetting its countdown never changes the retention deadline.
-        assertTrue(original.copy(tickets = listOf(one.copy(countdownEndsAt = Long.MAX_VALUE)))
-            .withoutExpiredTickets(bookedAt + TICKET_RETENTION_MILLIS).tickets.isEmpty())
+        val later = parseBookingTime(one.data.bookedOn)!! + 365L * 24 * 60 * 60 * 1000
+        assertEquals("Completed", one.status(later))
+        assertEquals(original, store.load(later))
+        assertEquals(original, store.load(later + 1000))
+    }
+    @Test fun savedPassengerUsesDisplayAbbreviationsWithoutChangingStoredOptions() {
+        val passenger = Passenger(name = "Traveller", mobile = "", age = "26", gender = "Male", berth = "No Preference", meal = "Non Veg")
+        assertEquals("26 Y, M, NC | Non Veg", passengerSummary(passenger))
+        val preferences = mapOf("Lower" to "LB", "Middle" to "MB", "Upper" to "UB", "Side Lower" to "SL", "Side Middle" to "SM", "Side Upper" to "SU", "Window Side" to "WS", "Coupe" to "CP")
+        preferences.forEach { (label, abbreviation) -> assertEquals("26 Y, F, $abbreviation | Veg", passengerSummary(passenger.copy(gender = "Female", berth = label, meal = "Veg"))) }
+        assertEquals("26 Y, T, NC | Non Veg", passengerSummary(passenger.copy(gender = "Trans Gender")))
+        assertEquals("No Preference", passenger.berth)
     }
     @Test fun walletAndPhotoPersistAndOlderSnapshotsKeepTickets() {
         val one = ticket()

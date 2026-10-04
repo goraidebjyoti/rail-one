@@ -315,7 +315,7 @@ internal fun InputScreen(
                     var expanded by remember { mutableStateOf(false) }
                     Text(
                         "Load a reusable journey template. " +
-                            "Passenger, route and preferences are copied; dates reset to now.",
+                            "Route and preferences are copied; contact details come from your profile and dates reset to now.",
                         fontSize = 12.sp,
                         color = Color(0xFF7A7B84)
                     )
@@ -360,26 +360,6 @@ internal fun InputScreen(
                         }
                     }
                 }
-            }
-
-            SectionCard(title = "Passenger Details") {
-                if (passengers.isNotEmpty()) {
-                    var pickPassenger by remember { mutableStateOf(false) }
-                    Box {
-                        OutlinedButton(onClick = { pickPassenger = true }) { Text("Use Saved Passenger") }
-                        DropdownMenu(expanded = pickPassenger, onDismissRequest = { pickPassenger = false }) {
-                            passengers.forEach { passenger ->
-                                DropdownMenuItem(text = { Text(passenger.name) }, onClick = {
-                                    onLoadPassenger(passenger)
-                                    pickPassenger = false
-                                })
-                            }
-                        }
-                    }
-                }
-                Text("Lead passenger / contact. Adult and child counts are set below.", fontSize = 12.sp, color = TextBlue)
-                Field("Passenger Name", data.passengerName, setPassengerName, Modifier.fillMaxWidth())
-                Field("Mobile Number", data.mobile, setMobile, Modifier.fillMaxWidth(), KeyboardType.Phone)
             }
 
             SectionCard(title = "Journey Route") {
@@ -459,7 +439,7 @@ internal fun InputScreen(
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = HeaderBlue)
             ) {
-                Text("CREATE TICKET", fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text("BOOK TICKET", fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
             Spacer(Modifier.height(16.dp))
         }

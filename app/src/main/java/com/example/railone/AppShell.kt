@@ -44,7 +44,7 @@ private val Ice = Color(0xFFE2F8FD)
 private val Lavender = Color(0xFFF0ECFF)
 
 @Composable
-internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean = false, onLoginSettings: () -> Unit = {}) {
+internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean = false, onLoginSettings: () -> Unit = {}, onBiometricToggle: () -> Unit = {}) {
     val context = LocalContext.current
     val store = remember { JourneyStore(context) }
     val loaded = remember { runCatching { store.load() } }
@@ -92,20 +92,12 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
     fun notify(text: String) { scope.launch { snackbar.showSnackbar(text) } }
     fun persist(updated: JourneyState): Boolean {
         if (loaded.isFailure) { message = "Stored data could not be read. Nothing has been overwritten. Restore a device backup or contact support with the source project."; return false }
-        val retained = updated.withoutExpiredTickets(System.currentTimeMillis())
+        val retained = updated
         if (!runCatching { store.save(retained) }.getOrDefault(false)) {
             notify("Could not save changes. Please retry."); return false
         }
         state = retained
         return true
-    }
-    LaunchedEffect(now) {
-        val retained = state.withoutExpiredTickets(now)
-        if (retained != state && persist(retained)) {
-            if (page == "Ticket" && retained.tickets.none { it.id == selectedId }) {
-                selectedId = null; page = "Main"; tab = returnTab
-            }
-        }
     }
     fun refreshData() {
         runCatching { store.load() }.onSuccess { state = it; notify("Saved data refreshed") }
@@ -129,7 +121,8 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
     fun edit(data: TicketData, id: String? = null) {
         editorReturnTicketId = if (page == "Ticket") selectedId else null
         if (page != "Ticket") returnTab = tab
-        setDraft(data); draftBaselineRaw = ticketJson(data).toString(); templateId = id; page = "Editor"
+        val contactDraft = data.copy(passengerName = state.profile.name, mobile = state.profile.mobile)
+        setDraft(contactDraft); draftBaselineRaw = ticketJson(contactDraft).toString(); templateId = id; page = "Editor"
     }
     fun openTicket(ticket: StoredTicket) {
         val openedAt = System.currentTimeMillis()
@@ -205,9 +198,11 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                                 setDraft(draftFromTemplate(it)); templateId = null
                             } },
                             onSaveJourney = {
-                                val problem = draftError(draft)
+                                val bookingDraft = draft.copy(passengerName = state.profile.name.trim(), mobile = state.profile.mobile.trim())
+                                val problem = if (bookingDraft.passengerName.isBlank() || bookingDraft.mobile.isBlank())
+                                    "Set your name and mobile number in You → Edit Details before booking." else draftError(bookingDraft)
                                 if (problem != null) error = problem else {
-                                    val template = templateFromDraft(draft, templateId ?: UUID.randomUUID().toString())
+                                    val template = templateFromDraft(bookingDraft, templateId ?: UUID.randomUUID().toString())
                                     if (persist(state.copy(templates = state.templates.filterNot { it.id == template.id } + template))) {
                                         templateId = template.id; draftBaselineRaw = draftRaw; notify("Journey template saved")
                                     }
@@ -215,12 +210,14 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                             },
                             onDeleteJourney = { confirm = "template" to it },
                             onGenerateTicket = {
-                                val problem = draftError(draft)
+                                val bookingDraft = draft.copy(passengerName = state.profile.name.trim(), mobile = state.profile.mobile.trim())
+                                val problem = if (bookingDraft.passengerName.isBlank() || bookingDraft.mobile.isBlank())
+                                    "Set your name and mobile number in You → Edit Details before booking." else draftError(bookingDraft)
                                 if (problem != null) error = problem else {
                                     var reference = generateJourneyTicket()
                                     while (state.tickets.any { it.data.journeyTicket == reference }) reference = generateJourneyTicket()
                                     val time = System.currentTimeMillis()
-                                    val frozen = draft.copy(passengerName = draft.passengerName.trim(), origin = draft.origin.trim(),
+                                    val frozen = bookingDraft.copy(passengerName = state.profile.name.trim(), mobile = state.profile.mobile.trim(), origin = draft.origin.trim(),
                                         destination = draft.destination.trim(), fare = formatFare(draft.fare),
                                         bookingDateTime = toTicketDisplayDateTime(draft.bookedOn), journeyTicket = reference)
                                     val ticket = StoredTicket(data = frozen, createdAt = time,
@@ -271,7 +268,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                                 onViewProfile = { profileViewing = true },
                                 onService = { /* Service not implemented. */ },
                                 onTransactions = { tab = "My Bookings"; bookingsFilter = "All" }, onProfile = { profileEditing = true },
-                                onAccount = { accountOpen = true }, loginEnabled = loginEnabled, biometricEnabled = biometricEnabled, onLoginSettings = onLoginSettings,
+                                onAccount = { accountOpen = true }, loginEnabled = loginEnabled, biometricEnabled = biometricEnabled, onLoginSettings = onLoginSettings, onBiometricToggle = onBiometricToggle,
                                 onAddPassenger = { passengerEditingId = UUID.randomUUID().toString() },
                                 onEditPassenger = { passengerEditingId = it.id },
                                 onDeletePassenger = { confirm = "passenger" to it.id },

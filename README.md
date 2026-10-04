@@ -89,7 +89,7 @@ Add in You and Add Money in Menu open an editable rupee amount. Confirming adds 
 
 View Details starts a fresh five-minute countdown for the selected ticket only. Journey details, booking/validity dates and other tickets remain unchanged. This does not extend Valid Till or change the Upcoming/Completed/Cancelled status.
 
-In My Bookings, press and hold a ticket continuously for two seconds to open Delete ticket? Choose Delete to remove that ticket from local storage and both My Bookings and Home, or Keep to leave it unchanged. The hold gesture is only available in My Bookings. Releasing early or scrolling cancels the hold. The screen stays awake during the hold. Deletion is available for every booking filter and does not delete passengers or templates. Accessibility services can use the Delete ticket custom action to open the same confirmation.
+In My Bookings, press and hold a ticket continuously for one second to open Delete ticket? Choose Delete to remove that ticket from local storage and both My Bookings and Home, or Keep to leave it unchanged. The hold gesture is only available in My Bookings. Releasing early or scrolling cancels the hold. The screen stays awake during the hold. Deletion is available for every booking filter and does not delete passengers or templates. Accessibility services can use the Delete ticket custom action to open the same confirmation.
 
 The entry form and ticket details use navigation blue #0166FF, including Create Ticket and the form accents. Both Booking Details headers use a circular back button, a shared 14dp side inset and an 18dp text gap. Ticket Details places the mobile number under the title with a 4dp gap, following the supplied header reference.
 
@@ -109,7 +109,7 @@ You → Edit Details → App version shown in Menu edits the right-side Menu foo
 
 You → View Details opens the reference-style Your Details panel, with the saved name and an edit pencil, DOB in long-form English, gender, ID type and masked number, address lines, PIN, Post Office, City and Country. Rows are read-only and scroll within the safe area. The pencil opens Edit Your Details, where Post Office and City are now editable and saved. City falls back to the previously saved district if a separate City value is absent. The ID check indicates a locally saved value.
 
-Tickets are automatically removed 24 hours after the editable Booked On timestamp captured at creation, including completed or cancelled tickets. The five-minute details countdown does not extend this deadline. Cleanup runs while the app is open and when saved data is next loaded after the app was closed; no background service is required. Other saved data is retained. Legacy tickets with an unreadable Booked On value use their creation timestamp.
+Tickets remain saved indefinitely, including completed and cancelled tickets. Delete them manually from My Bookings with a one-second hold and confirmation. No automatic age-based deletion runs.
 
 Home hides the entire Upcoming Journey section (heading, View All and cards) when there are no upcoming tickets. The facts carousel reserves space for the longest caption at the current font scale, so scrolling to Hubballi does not move the social heading or banner.
 
@@ -127,8 +127,17 @@ The mPIN is stored as a salted PBKDF2 verifier, never as plaintext, in separate 
 
 Cards show Unreserved, UTS reference, ticket type, booking date, source, distance in km, destination and the Book Again/View Details actions. They expand to fit text instead of clipping the station row. Upcoming is orange, Completed green, Cancelled red and All blue; cards in All retain their individual status outline.
 
-Tickets become Completed exactly 12 hours after Booked On regardless of Valid Till, and are still automatically removed at 24 hours. Cancelled remains an explicit status until removal. Empty filters show the grey ticket illustration and "No Tickets Found. Swipe down to refresh." Pulling down refreshes storage.
+Tickets become Completed exactly 12 hours after Booked On regardless of Valid Till, and remain saved in Completed until manually deleted. Cancelled remains an explicit status. Empty filters show the grey ticket illustration and "No Tickets Found. Swipe down to refresh." Pulling down refreshes storage.
 
 The header's reference sort icon opens Sort & Filters, with Sort By / Filter sections, Journey Date / Booking Date choices and Apply. The Filter section selects Upcoming, Completed, Cancelled or All. Sorting uses the entered timestamp rather than the time the record was saved. For these unreserved tickets the journey date is the booked date, so the two date choices currently produce the same chronological order. The original newest-first ordering is retained.
 
 Saved Journey Templates is now a boxed option with an icon; tap it to expand or collapse the saved templates and their existing Add/Use/Edit/Delete controls.
+
+## Latest booking and profile changes
+
+- Home shows View All only with two or more upcoming tickets.
+- The unreserved booking form has no Passenger Details section. Book Ticket uses the current profile name and mobile from You. Old tickets keep the contact captured when booked.
+- Booking cards use compact text spacing and stronger coloured dashed separators. Long station names can wrap without clipping.
+- Hold any My Bookings ticket for one second, then confirm deletion. Home has no delete gesture.
+- The Biometric tile has an animated On/Off switch. With App Login enabled and a device biometric enrolled it toggles the saved biometric setting; otherwise it opens setup. The mPIN remains available.
+- Saved passenger summaries use gender and berth abbreviations and a vertical bar before the full meal name. Selection menus retain full option names.

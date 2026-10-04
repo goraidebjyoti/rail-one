@@ -33,7 +33,7 @@ class NavigationTest {
         first = StoredTicket(data = draft, createdAt = now, countdownEndsAt = now + 300000, accentIndex = 0)
         second = StoredTicket(data = draft.copy(origin = "DELHI", destination = "AGRA", journeyTicket = "X987654321"),
             createdAt = now + 1, countdownEndsAt = now + 300000, accentIndex = 2)
-        JourneyStore(context).save(JourneyState(tickets = listOf(first, second)))
+        JourneyStore(context).save(JourneyState(tickets = listOf(first, second), profile = UserProfile(name = "Traveller", mobile = "9876543210")))
         launchHome()
     }
     private fun launchHome() {
@@ -108,6 +108,15 @@ class NavigationTest {
         compose.onNodeWithText("View All").assertDoesNotExist()
         compose.onNodeWithTag("upcoming-journeys").assertDoesNotExist()
     }
+    @Test fun singleUpcomingTicketHidesViewAll() {
+        scenario.close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        JourneyStore(context).save(JourneyState(tickets = listOf(first), showServices = false))
+        launchHome()
+        compose.onNodeWithTag("home-content").performScrollToNode(hasTestTag("upcoming-journeys"))
+        compose.onNodeWithText("Upcoming Journey").assertExists()
+        compose.onNodeWithText("View All").assertDoesNotExist()
+    }
     @Test fun socialHeadingStaysInPlaceWhenFactsScrollToLongestCaption() {
         // LazyColumn has not composed this off-screen item yet. Scroll the
         // existing parent by matcher before querying its nested facts row.
@@ -138,7 +147,7 @@ class NavigationTest {
         val store = JourneyStore(context)
         first = first.copy(countdownEndsAt = 1)
         second = second.copy(countdownEndsAt = 1)
-        store.save(JourneyState(tickets = listOf(first, second)))
+        store.save(JourneyState(tickets = listOf(first, second), profile = UserProfile(name = "Traveller", mobile = "9876543210")))
         launchHome()
         compose.onNodeWithText("My Bookings").performClick()
         val beforeBookings = System.currentTimeMillis()
@@ -179,7 +188,7 @@ class NavigationTest {
         compose.onNodeWithTag("home-ticket-${second.id}").assertDoesNotExist()
         compose.onNodeWithTag("home-ticket-${first.id}").assertIsDisplayed()
     }
-    @Test fun twoSecondHoldShowsDeleteAndEarlyReleaseDoesNot() {
+    @Test fun oneSecondHoldShowsDeleteAndEarlyReleaseDoesNot() {
         compose.onNodeWithText("My Bookings").performClick()
         val card = compose.onNodeWithTag("booking-ticket-${second.id}")
         card.performTouchInput { down(center); advanceEventTime(200); up() }
@@ -194,7 +203,7 @@ class NavigationTest {
     @Test fun bookAgainCreatesThirdTicketAndPreservesOriginals() {
         compose.onNodeWithText("My Bookings").performClick()
         compose.onAllNodesWithText("Book Again")[0].performClick()
-        compose.onNodeWithText("CREATE TICKET").performScrollTo().performClick()
+        compose.onNodeWithText("BOOK TICKET").performScrollTo().performClick()
         compose.onNodeWithContentDescription("Back", useUnmergedTree = true).performClick()
         compose.onNodeWithText("Upcoming (3)").assertIsDisplayed()
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -222,9 +231,10 @@ class NavigationTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         org.junit.Assert.assertEquals(12345L, JourneyStore(context).load().walletPaise)
     }
-    @Test fun newTicketStartsWithBlankPassengerAndRoute() {
+    @Test fun newTicketUsesProfileContactAndStartsWithBlankRoute() {
         compose.onNodeWithContentDescription("New Ticket").performClick()
-        compose.onNode(hasSetTextAction() and hasText("Passenger Name")).assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, androidx.compose.ui.text.AnnotatedString("")))
+        compose.onNodeWithText("Passenger Details").assertDoesNotExist()
+        compose.onNodeWithText("Passenger Name").assertDoesNotExist()
         compose.onNode(hasSetTextAction() and hasText("From Station")).assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, androidx.compose.ui.text.AnnotatedString("")))
     }
     @Test fun passengerReferenceSheetSavesMealAndBirthDate() {

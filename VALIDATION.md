@@ -115,3 +115,9 @@ The supplied GitHub run compiled both APKs and passed 29 of 30 tests. The sole f
 - Completion now uses Booked On +12h and retains cancellation priority. Auto-deletion remains +24h. Updated the existing boundary test and completed-only Home fixture accordingly.
 - Added salted-verifier reload, retry-delay persistence, invalid-PIN rejection, unaffected journey storage, optional-login setup/wrong/correct-PIN flow and sort/filter regression tests. Navigation tests explicitly wait for the new launch animation. There are 37 instrumentation tests included, including full station-row visibility on booking cards.
 - Local Kotlin syntax, ticket JSON symmetry, XML/YAML and resource checks passed. The Android SDK/Gradle/emulator are absent locally; compilation, device biometrics/credential recovery, touch/layout screenshots and instrumentation results must be verified by GitHub and an actual enrolled device. The last supplied GitHub run predates these changes and reported 29/30 passing tests; it is not evidence that this revision passes.
+
+## Latest revision supersedes earlier retention and hold notes
+
+Automatic ticket removal has been removed from both load and foreground saves. Tickets become Completed at Booked On +12h and remain saved; manual deletion requires a one-second hold and confirmation. Added retention-over-one-year and passenger abbreviation regression assertions plus a single-ticket Home test. Booking form contacts come from the current profile. Reference card text spacing and separators were tightened and the biometric tile now uses an animated persistent toggle.
+
+39 instrumentation tests are included. Kotlin syntax, XML/YAML and archive checks were run locally; Android compilation and device tests cannot run here because Gradle/Android SDK/emulator are unavailable. GitHub must run the full build and test suite.
