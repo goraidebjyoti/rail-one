@@ -183,9 +183,11 @@ internal class JourneyStore(private val context: Context, val userId: String = a
             SavedRoute(route.getString("id"), route.getString("pairId"), route.getString("origin"), route.getString("destination"), route.optString("via"), route.optString("distance").ifBlank {
                 recoverRouteDistance(route.getString("origin"), route.getString("destination"), route.optString("via"),
                     stored.templates.map(::draftFromTemplate) + stored.tickets.map { it.data })
-            })
+            }, fares = if (route.has("fares")) route.getJSONObject("fares").let { fares ->
+                fares.keys().asSequence().associateWith { fares.getString(it) }
+            } else emptyMap())
         }) else stored.copy(routes = routesFromTemplates(stored.templates))
-        if ((0 until j.getJSONArray("tickets").length()).any { !j.getJSONArray("tickets").getJSONObject(it).has("ownerUserId") } || !j.has("routes") || (0 until j.getJSONArray("routes").length()).any { !j.getJSONArray("routes").getJSONObject(it).has("distance") }) check(save(compatible)) { "Unable to save route migration" }
+        if ((0 until j.getJSONArray("tickets").length()).any { !j.getJSONArray("tickets").getJSONObject(it).has("ownerUserId") } || !j.has("routes") || (0 until j.getJSONArray("routes").length()).any { !j.getJSONArray("routes").getJSONObject(it).has("distance") || !j.getJSONArray("routes").getJSONObject(it).has("fares") }) check(save(compatible)) { "Unable to save route migration" }
         return compatible
     }
     fun save(state: JourneyState): Boolean {
@@ -216,7 +218,7 @@ internal class JourneyStore(private val context: Context, val userId: String = a
             put("showServices", state.showServices)
             put("walletPaise", state.walletPaise)
             put("routes", writeArray(state.routes) { route -> JSONObject().apply {
-                put("id", route.id); put("pairId", route.pairId); put("origin", route.origin); put("destination", route.destination); put("via", route.via); put("distance", route.distance)
+                put("id", route.id); put("pairId", route.pairId); put("origin", route.origin); put("destination", route.destination); put("via", route.via); put("distance", route.distance); put("fares", JSONObject(route.fares))
             } })
         }
         return preferences.edit().putString(key, json.toString()).commit()

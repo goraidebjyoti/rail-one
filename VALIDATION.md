@@ -151,3 +151,7 @@ Added a Remove Via action and an explicit choice between editing one direction a
 ## CI profile-edit test correction
 
 The user's uploaded CI run compiled the app and test APKs and completed 67 instrumentation tests: 66 passed, one failed. `extendedProfileSaveOpensSeparateAccountSheet` appended `traveller` to the fixture's prefilled username, producing `travellertraveller`. Changed this test to replace name, mobile, username and email rather than append, and added exact saved-value assertions for all four fields. Production code is unchanged. Static checks pass; the corrected Android test suite has not been rerun in this workspace.
+
+## Saved fares by train type
+
+Added optional fares for the four supported train types, route/train-type fare lookup, editable booking overrides, reverse-direction fare copying and independent fare edits. Added four model regressions covering persistence, reverse copying, missing fares, independent edits, booking saves and pre-fare migration; added one navigation regression for train-type lookup and manual overrides. Total: 72 instrumentation tests included, not executed locally. Kotlin syntax parsing, ticket JSON symmetry, XML and workflow checks passed. No Android SDK/Gradle/emulator is available here, so compilation and device behavior remain unverified.

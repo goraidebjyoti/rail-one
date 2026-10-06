@@ -176,3 +176,11 @@ The original user's existing preferences, data and mPIN keys are retained. New u
 ## Editing Via in either saved direction
 
 In **You → Saved Routes**, edit the forward or reverse entry. Change Via, or tap **Remove Via** to make it direct. Keep **Update reverse route too** checked to update both directions with reversed stop order; uncheck it to change only the selected direction. Distance remains unless you edit it. Existing tickets keep their original booked route. If the new path already exists separately, saving shows an inline message rather than removing that other path.
+
+## Saved route fares
+
+Saved routes now include optional rupee fares for Ordinary, Mail/Express, Superfast and AC EMU trains. Selecting a route or changing its train type fills the corresponding saved fare; a missing fare leaves the field empty for manual entry. You can override the fare before booking. Saving a route from the booking form includes the current train type and fare while retaining other saved train-type fares.
+
+New routes copy fares to the reverse direction. In Edit Route, “Update reverse route too” lets you change both directions together or just the selected direction. Existing routes migrate with empty fare maps and existing ticket snapshots stay unchanged.
+
+This update includes 72 Android instrumentation tests. Local syntax, XML and workflow checks passed; Android compilation and emulator tests were not run locally.

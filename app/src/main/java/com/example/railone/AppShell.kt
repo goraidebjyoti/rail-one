@@ -191,7 +191,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                             setOrigin = { setDraft(draft.copy(origin = it.uppercase(java.util.Locale.ROOT)).fillUniqueSavedRoute(state.routes)) },
                             setDistance = { setDraft(draft.copy(distance = it)) },
                             setDestination = { setDraft(draft.copy(destination = it.uppercase(java.util.Locale.ROOT)).fillUniqueSavedRoute(state.routes)) },
-                            setVia = { setDraft(draft.copy(via = it.uppercase(java.util.Locale.ROOT))) },
+                            setVia = { setDraft(draft.copy(via = it.uppercase(java.util.Locale.ROOT)).withTrainTypeFare(draft.trainType, state.routes)) },
                             setAdults = { setDraft(draft.copy(adults = it.filter(Char::isDigit))) },
                             setChildren = { setDraft(draft.copy(children = it.filter(Char::isDigit))) },
                             setBookedOn = { setDraft(draft.copy(bookedOn = it, bookingDateTime = toTicketDisplayDateTime(it),
@@ -199,7 +199,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                             setValidTill = { setDraft(draft.copy(validTill = it)) },
                             resetBookedOnToNow = { setDraft(renewedDraft(draft)) },
                             setClassName = { setDraft(draft.copy(className = it)) },
-                            setTrainType = { setDraft(draft.copy(trainType = it)) },
+                            setTrainType = { setDraft(draft.withTrainTypeFare(it, state.routes)) },
                             setTicketType = { setDraft(draft.copy(ticketType = it)) },
                             setFare = { setDraft(draft.copy(fare = sanitizeFareInput(it))) },
                             onFareFocusLost = {
@@ -245,7 +245,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                             templateSaveLabel = if (templateId == null) "Save As Journey Template" else "Update Journey Template",
                             error = error, routes = state.routes,
                             onUseRoute = { setDraft(draft.withRoute(it)) },
-                            onSaveRoute = { routeEditing = SavedRoute(origin = draft.origin, destination = draft.destination, via = draft.via, distance = draft.distance) },
+                            onSaveRoute = { routeEditing = draft.routeForSaving(state.routes) },
                         )
                         "Ticket" -> if (selected != null && selected.status(now) == "Completed") CompletedTicketPage(selected.data,
                             onBack = { back() }, onInvoice = {

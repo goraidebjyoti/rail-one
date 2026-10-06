@@ -616,6 +616,7 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
         if (routesExpanded) items(state.routes, key = { "route-${it.id}" }) { route ->
             Column(Modifier.padding(horizontal = 17.dp, vertical = 6.dp).fillMaxWidth().background(PaleBlue, RoundedCornerShape(12.dp)).padding(14.dp)) {
                 Text(route.label, color = Ink, fontSize = 13.sp)
+                if (route.fares.isNotEmpty()) Text(route.fares.entries.joinToString(" · ") { "${it.key}: ₹${it.value}" }, color = Muted, fontSize = 11.sp)
                 Row {
                     TextButton(onClick = { onUseRoute(route) }) { Text("Use") }
                     TextButton(onClick = { onEditRoute(route) }) { Text("Edit") }

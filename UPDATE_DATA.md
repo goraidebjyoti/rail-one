@@ -39,3 +39,5 @@ Choose **Use Saved Route** in Booking Details to fill From, To, Via and distance
 ## Multiple users
 
 Existing data stays with the original local user and its original storage key. Additional users use separate snapshots in the same preferences file, so the backup tool retains all users. Local login credentials remain separately stored and excluded from Android automatic backup as before. **You → Users** and login **Different User?** allow selection or creation. Name, username and a valid phone number are required for booking; each ticket snapshots the booking identity. If an old ticket predates usernames, migration associates it with the original user and records the available username without changing its saved passenger name or phone.
+
+Saved-route fare migration adds an optional map per route. Routes without this map retain their stations, Via and distance; fares start empty. Past tickets, users, passengers and templates are preserved. The application ID and bundled signing key remain unchanged.

@@ -14,13 +14,15 @@ import java.util.Locale
 import java.util.UUID
 
 internal data class SavedRoute(val id: String = UUID.randomUUID().toString(), val pairId: String = id,
-    val origin: String = "", val destination: String = "", val via: String = "", val distance: String = "") {
+    val origin: String = "", val destination: String = "", val via: String = "", val distance: String = "", val fares: Map<String, String> = emptyMap()) {
     val label: String get() = "$origin → $destination" + (if (via.isBlank()) " · Direct" else " · Via $via") +
         if (distance.isBlank()) " · Add distance" else " · ${normalDistance(distance)} km"
 }
 internal fun normalStation(value: String): String = value.trim().uppercase(Locale.ROOT).replace(Regex("\\s+"), " ")
 internal fun normalVia(value: String): String = value.split('-').joinToString("-") { normalStation(it) }
 internal fun normalDistance(value: String): String = value.trim().replace(Regex("(?i)\\s*km$"), "").trim()
+internal fun validRouteFare(value: String): Boolean = Regex("[0-9]{1,7}(\\.[0-9]{1,2})?").matches(value.trim())
+internal fun normalFares(fares: Map<String, String>): Map<String, String> = fares.mapValues { formatFare(it.value.trim()) }
 internal fun validRouteDistance(value: String): Boolean = normalDistance(value).toDoubleOrNull()?.let { it.isFinite() && it > 0 } == true
 internal fun reverseVia(value: String): String = if (value.isBlank()) "" else normalVia(value).split('-').reversed().joinToString("-")
 internal fun routeError(route: SavedRoute): String? = when {
@@ -28,12 +30,13 @@ internal fun routeError(route: SavedRoute): String? = when {
     normalStation(route.origin) == normalStation(route.destination) -> "From and To stations must differ."
     route.via.isNotBlank() && route.via.split('-').any { it.isBlank() } -> "Separate Via stops with one hyphen, for example PKU-SRC."
     !validRouteDistance(route.distance) -> "Enter a positive distance in km."
+    route.fares.any { (type, fare) -> type !in TRAIN_TYPE_OPTIONS || !validRouteFare(fare) } -> "Enter valid fares with at most two decimal places, or leave them empty."
     else -> null
 }
 private fun routeKey(route: SavedRoute) = listOf(normalStation(route.origin), normalStation(route.destination), normalVia(route.via))
 internal fun List<SavedRoute>.saveRoutePair(input: SavedRoute): List<SavedRoute> {
     require(routeError(input) == null)
-    val route = input.copy(origin = normalStation(input.origin), destination = normalStation(input.destination), via = normalVia(input.via), distance = normalDistance(input.distance))
+    val route = input.copy(origin = normalStation(input.origin), destination = normalStation(input.destination), via = normalVia(input.via), distance = normalDistance(input.distance), fares = normalFares(input.fares))
     val reverse = route.copy(id = firstOrNull { it.pairId == route.pairId && it.id != route.id }?.id ?: UUID.randomUUID().toString(),
         origin = route.destination, destination = route.origin, via = reverseVia(route.via))
     val keys = setOf(routeKey(route), routeKey(reverse))
@@ -42,7 +45,7 @@ internal fun List<SavedRoute>.saveRoutePair(input: SavedRoute): List<SavedRoute>
 internal fun List<SavedRoute>.editRoute(input: SavedRoute, updateReverse: Boolean): List<SavedRoute> {
     require(routeError(input) == null) { routeError(input).orEmpty() }
     val normal = input.copy(origin = normalStation(input.origin), destination = normalStation(input.destination),
-        via = normalVia(input.via), distance = normalDistance(input.distance))
+        via = normalVia(input.via), distance = normalDistance(input.distance), fares = normalFares(input.fares))
     val existing = any { it.id == input.id }
     if (updateReverse) {
         if (existing) {
@@ -61,7 +64,8 @@ internal fun List<SavedRoute>.editRoute(input: SavedRoute, updateReverse: Boolea
 }
 
 internal fun TicketData.withRoute(route: SavedRoute): TicketData = copy(origin = normalStation(route.origin), destination = normalStation(route.destination), via = normalVia(route.via),
-    distance = route.distance.takeIf { it.isNotBlank() }?.let(::normalDistance) ?: distance)
+    distance = route.distance.takeIf { it.isNotBlank() }?.let(::normalDistance) ?: distance,
+    fare = route.fares[trainType].orEmpty())
 internal fun routesFromTemplates(templates: List<SavedJourney>): List<SavedRoute> = templates.fold(emptyList()) { routes, template ->
     val route = SavedRoute(origin = template.origin, destination = template.destination, via = template.via, distance = template.distance)
     if (routeError(route) == null) routes.saveRoutePair(route) else routes
@@ -72,6 +76,10 @@ internal fun SavedRouteSheet(route: SavedRoute, isEditing: Boolean = false, onDi
     var destination by rememberSaveable(route.id) { mutableStateOf(route.destination) }
     var via by rememberSaveable(route.id) { mutableStateOf(route.via) }
     var distance by rememberSaveable(route.id) { mutableStateOf(route.distance) }
+    var ordinaryFare by rememberSaveable(route.id) { mutableStateOf(route.fares["ORDINARY"].orEmpty()) }
+    var expressFare by rememberSaveable(route.id) { mutableStateOf(route.fares["MAIL/EXPRESS"].orEmpty()) }
+    var superfastFare by rememberSaveable(route.id) { mutableStateOf(route.fares["SUPERFAST"].orEmpty()) }
+    var acFare by rememberSaveable(route.id) { mutableStateOf(route.fares["AC EMU TRAIN"].orEmpty()) }
     var updateReverse by rememberSaveable(route.id) { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     ReferenceSheet(if (isEditing) "Edit Route" else "Save Route", onDismiss, fraction = .75f) {
@@ -84,13 +92,25 @@ internal fun SavedRouteSheet(route: SavedRoute, isEditing: Boolean = false, onDi
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth(), singleLine = true)
         Text("Leave Via empty for a direct route. Different Via paths for the same stations can be saved separately.", fontSize = 12.sp)
+        Text("Saved fares by train type (₹)", fontSize = 14.sp)
+        Text("Leave a fare empty if it is not stored. Selecting that train type will require a manual fare.", fontSize = 12.sp)
+        OutlinedTextField(ordinaryFare, { ordinaryFare = it; error = null }, label = { Text("Ordinary fare (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
+        OutlinedTextField(expressFare, { expressFare = it; error = null }, label = { Text("Mail/Express fare (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
+        OutlinedTextField(superfastFare, { superfastFare = it; error = null }, label = { Text("Superfast fare (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
+        OutlinedTextField(acFare, { acFare = it; error = null }, label = { Text("AC EMU fare (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
         if (isEditing) Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = updateReverse, onCheckedChange = { updateReverse = it; error = null })
             Text("Update reverse route too", fontSize = 13.sp)
         }
         error?.let { Text(it, color = Color(0xFFB3261E)) }
         Button(onClick = {
-            val edited = route.copy(origin = origin, destination = destination, via = via, distance = distance)
+            val fares = mapOf("ORDINARY" to ordinaryFare, "MAIL/EXPRESS" to expressFare,
+                "SUPERFAST" to superfastFare, "AC EMU TRAIN" to acFare).filterValues { it.isNotBlank() }
+            val edited = route.copy(origin = origin, destination = destination, via = via, distance = distance, fares = fares)
             error = routeError(edited)
             if (error == null) error = onSave(edited, updateReverse)
         }, modifier = Modifier.fillMaxWidth()) { Text(if (!isEditing) "Save Route and Reverse" else if (updateReverse) "Save Both Directions" else "Save This Direction") }
@@ -141,3 +161,17 @@ internal fun recoverRouteDistance(origin: String, destination: String, via: Stri
             (normalStation(data.origin) == normalStation(origin) && normalStation(data.destination) == normalStation(destination) && normalVia(data.via) == normalVia(via)) ||
             (normalStation(data.destination) == normalStation(origin) && normalStation(data.origin) == normalStation(destination) && reverseVia(data.via) == normalVia(via)))
     }?.distance?.let(::normalDistance).orEmpty()
+
+
+internal fun TicketData.savedPath(routes: List<SavedRoute>): SavedRoute? = matchingRoutes(routes, origin, destination)
+    .filter { normalVia(it.via) == normalVia(via) }.singleOrNull()
+internal fun TicketData.withTrainTypeFare(type: String, routes: List<SavedRoute>): TicketData {
+    val route = savedPath(routes)
+    return copy(trainType = type, fare = if (route == null) fare else route.fares[type].orEmpty())
+}
+internal fun TicketData.routeForSaving(routes: List<SavedRoute>): SavedRoute {
+    val existing = savedPath(routes)
+    val storedFares = existing?.fares.orEmpty()
+    val updatedFares = if (trainType in TRAIN_TYPE_OPTIONS && validRouteFare(fare)) storedFares + (trainType to fare) else storedFares
+    return (existing ?: SavedRoute()).copy(origin = origin, destination = destination, via = via, distance = distance, fares = updatedFares)
+}

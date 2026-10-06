@@ -419,4 +419,21 @@ class NavigationTest {
         org.junit.Assert.assertEquals("traveller", JourneyStore(context).load().profile.username)
     }
 
+    @Test fun bookingTrainTypeSelectionFillsSavedFareAndAllowsManualOverride() {
+        scenario.close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val routes = emptyList<SavedRoute>().saveRoutePair(SavedRoute(origin = "DELHI", destination = "AGRA", distance = "175",
+            fares = mapOf("ORDINARY" to "30.00", "MAIL/EXPRESS" to "60.00")))
+        JourneyStore(context).save(JourneyState(routes = routes, profile = UserProfile("Traveller", "9876543210", username = "traveller")))
+        launchHome()
+        compose.onNodeWithContentDescription("New Ticket").performClick()
+        compose.onNode(hasSetTextAction() and hasText("From Station")).performScrollTo().performTextInput("DELHI")
+        compose.onNode(hasSetTextAction() and hasText("To Station")).performTextInput("AGRA")
+        compose.onNode(hasText("Train Type")).performScrollTo().performClick()
+        compose.onNodeWithText("MAIL/EXPRESS", substring = false).performClick()
+        compose.onNode(hasSetTextAction() and hasText("Fare (₹)")).performScrollTo().assertTextContains("60.00")
+        compose.onNode(hasSetTextAction() and hasText("Fare (₹)")).performTextReplacement("65.00")
+        compose.onNode(hasSetTextAction() and hasText("Fare (₹)")).assertTextContains("65.00")
+    }
+
 }

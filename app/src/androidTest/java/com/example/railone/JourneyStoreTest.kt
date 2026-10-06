@@ -261,7 +261,7 @@ class JourneyStoreTest {
         val draft = validDraft()
         val route = SavedRoute(origin = "DELHI", destination = "AGRA", via = "ABC", distance = "116")
         val applied = draft.withRoute(route)
-        assertEquals(draft, applied.copy(origin = draft.origin, destination = draft.destination, via = draft.via, distance = draft.distance))
+        assertEquals(draft, applied.copy(origin = draft.origin, destination = draft.destination, via = draft.via, distance = draft.distance, fare = draft.fare))
         assertEquals("DELHI", applied.origin)
         assertEquals("ABC", applied.via)
     }
@@ -369,6 +369,52 @@ class JourneyStoreTest {
         assertTrue(runCatching { routes.editRoute(first.copy(via = ""), updateReverse = false) }.isFailure)
         assertTrue(runCatching { routes.editRoute(first.copy(via = ""), updateReverse = true) }.isFailure)
         assertEquals(4, routes.size)
+    }
+
+    @Test fun trainTypeFaresRoundTripAndReverseWithTheRoute() {
+        val route = SavedRoute(origin = "A", destination = "B", via = "X-Y", distance = "116",
+            fares = mapOf("ORDINARY" to "30", "MAIL/EXPRESS" to "60.50", "SUPERFAST" to "80"))
+        val routes = emptyList<SavedRoute>().saveRoutePair(route)
+        assertEquals(mapOf("ORDINARY" to "30.00", "MAIL/EXPRESS" to "60.50", "SUPERFAST" to "80.00"), routes.first().fares)
+        assertEquals(routes.first().fares, routes.last().fares)
+        assertTrue(store.save(JourneyState(routes = routes)))
+        assertEquals(routes, store.load(testNow).routes)
+    }
+    @Test fun selectingRouteOrTrainTypeUsesMatchingFareAndClearsMissingTypes() {
+        val route = SavedRoute(origin = "A", destination = "B", via = "X", distance = "116",
+            fares = mapOf("ORDINARY" to "30.00", "MAIL/EXPRESS" to "60.00"))
+        val routes = emptyList<SavedRoute>().saveRoutePair(route)
+        val selected = validDraft().copy(trainType = "ORDINARY").withRoute(routes.first())
+        assertEquals("30.00", selected.fare)
+        assertEquals("60.00", selected.withTrainTypeFare("MAIL/EXPRESS", routes).fare)
+        assertEquals("", selected.withTrainTypeFare("SUPERFAST", routes).fare)
+        assertEquals("60.00", selected.copy(origin = "B", destination = "A", via = "X").withTrainTypeFare("MAIL/EXPRESS", routes).fare)
+    }
+    @Test fun editingFaresIndependentlyAndSavingFromBookingKeepsOtherTrainTypes() {
+        val route = SavedRoute(origin = "A", destination = "B", distance = "116",
+            fares = mapOf("ORDINARY" to "30.00", "MAIL/EXPRESS" to "60.00"))
+        val routes = emptyList<SavedRoute>().saveRoutePair(route)
+        val draft = validDraft().withRoute(routes.first()).copy(trainType = "MAIL/EXPRESS", fare = "65")
+        val edited = draft.routeForSaving(routes)
+        assertEquals(route.id, edited.id)
+        assertEquals("30.00", edited.fares["ORDINARY"])
+        val changed = routes.editRoute(edited, updateReverse = false)
+        assertEquals("65.00", changed.first().fares["MAIL/EXPRESS"])
+        assertEquals("60.00", changed.last().fares["MAIL/EXPRESS"])
+        assertNotNull(routeError(route.copy(fares = mapOf("ORDINARY" to "-1"))))
+        assertNotNull(routeError(route.copy(fares = mapOf("ORDINARY" to "30.123"))))
+    }
+    @Test fun preFareRoutesMigrateWithoutChangingExistingBookingsOrOtherData() {
+        val routes = emptyList<SavedRoute>().saveRoutePair(SavedRoute(origin = "A", destination = "B", distance = "116"))
+        val original = JourneyState(routes = routes, tickets = listOf(ticket()), profile = UserProfile("Owner", "9876543210"), walletPaise = 855)
+        assertTrue(store.save(original))
+        val prefs = context.getSharedPreferences(PROFILES_PREFS, Context.MODE_PRIVATE)
+        val old = JSONObject(prefs.getString("journey_state_v1", null)!!)
+        val array = old.getJSONArray("routes")
+        for (i in 0 until array.length()) array.getJSONObject(i).remove("fares")
+        assertTrue(prefs.edit().putString("journey_state_v1", old.toString()).commit())
+        assertEquals(original, store.load(testNow))
+        assertEquals(original, JourneyStore(context).load(testNow))
     }
 
 }
