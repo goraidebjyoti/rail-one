@@ -147,3 +147,7 @@ Added per-user snapshots with original snapshot-key compatibility, a local user 
 ## Independent Via edits and removal
 
 Added a Remove Via action and an explicit choice between editing one direction and both directions. Added three route regressions for paired Via removal with distance retained, independent reverse edits and later synchronization, persistence and collision protection. Total: 67 instrumentation tests included, not run locally. Kotlin/XML/workflow static checks pass; Android build and device UI remain unverified.
+
+## CI profile-edit test correction
+
+The user's uploaded CI run compiled the app and test APKs and completed 67 instrumentation tests: 66 passed, one failed. `extendedProfileSaveOpensSeparateAccountSheet` appended `traveller` to the fixture's prefilled username, producing `travellertraveller`. Changed this test to replace name, mobile, username and email rather than append, and added exact saved-value assertions for all four fields. Production code is unchanged. Static checks pass; the corrected Android test suite has not been rerun in this workspace.
