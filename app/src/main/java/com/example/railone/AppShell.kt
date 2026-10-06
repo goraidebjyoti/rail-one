@@ -71,6 +71,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
     var accountOpen by rememberSaveable { mutableStateOf(false) }
     var walletEditing by rememberSaveable { mutableStateOf(false) }
     var photoBusy by remember { mutableStateOf(false) }
+    var routeEditing by remember { mutableStateOf<SavedRoute?>(null) }
     var passengerEditingId by rememberSaveable { mutableStateOf<String?>(null) }
     val passengerEditing = passengerEditingId?.let { id ->
         state.passengers.find { it.id == id } ?: Passenger(id = id, name = "", mobile = "")
@@ -240,9 +241,19 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                             }, onBack = { requestBack() }, passengers = state.passengers,
                             onLoadPassenger = { setDraft(draft.copy(passengerName = it.name, mobile = it.mobile)) },
                             templateSaveLabel = if (templateId == null) "Save As Journey Template" else "Update Journey Template",
-                            error = error,
+                            error = error, routes = state.routes,
+                            onUseRoute = { setDraft(draft.withRoute(it)) },
+                            onSaveRoute = { routeEditing = SavedRoute(origin = draft.origin, destination = draft.destination, via = draft.via) },
                         )
-                        "Ticket" -> if (selected != null) TicketScreen(selected.data, selected.secondsLeft(now),
+                        "Ticket" -> if (selected != null && selected.status(now) == "Completed") CompletedTicketPage(selected.data,
+                            onBack = { back() }, onInvoice = {
+                                scope.launch {
+                                    try {
+                                        val file = withContext(Dispatchers.IO) { createJourneyInvoice(context, selected.data) }
+                                        context.startActivity(Intent.createChooser(journeyInvoiceShareIntent(context, file), "Share journey invoice"))
+                                    } catch (_: Exception) { notify("Could not share the invoice. Please retry.") }
+                                }
+                            }) else if (selected != null) TicketScreen(selected.data, selected.secondsLeft(now),
                             ACCENT_COLORS[selected.accentIndex.coerceIn(0, ACCENT_COLORS.lastIndex)],
                             onBack = { back() }, status = selected.status(now),
                             onConnecting = {
@@ -281,6 +292,9 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                                 onAddPassenger = { passengerEditingId = UUID.randomUUID().toString() },
                                 onEditPassenger = { passengerEditingId = it.id },
                                 onDeletePassenger = { confirm = "passenger" to it.id },
+                                onAddRoute = { routeEditing = SavedRoute() },
+                                onUseRoute = { edit(freshDraft().withRoute(it)) },
+                                onEditRoute = { routeEditing = it }, onDeleteRoute = { confirm = "route" to it.pairId },
                                 onNewTemplate = { edit(freshDraft()) },
                                 onEditTemplate = { edit(draftFromTemplate(it), it.id) },
                                 onUseTemplate = { edit(draftFromTemplate(it)) },
@@ -330,6 +344,9 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
             onEdit = { accountOpen = false; profileEditing = true },
             onToggle = { persist(state.copy(profile = state.profile.copy(divyangjan = it))) },
             onDelete = { confirm = "profile" to "profile" })
+        routeEditing?.let { route -> SavedRouteSheet(route, onDismiss = { routeEditing = null }, onSave = {
+            if (persist(state.copy(routes = state.routes.saveRoutePair(it)))) { routeEditing = null; notify("Route and reverse saved") }
+        }) }
         passengerEditing?.let { passenger -> PassengerSheet(passenger, isNew = state.passengers.none { it.id == passenger.id }, onDismiss = { passengerEditingId = null }, onSave = {
             if (persist(state.copy(passengers = state.passengers.filterNot { p -> p.id == it.id } + it))) passengerEditingId = null
         }) }
@@ -341,11 +358,13 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                 text = { Text(if (deletingProfile) "Clear your local profile details and photo? Tickets, saved passengers, journey templates and wallet balance will remain. There is no online account to delete."
                     else if (deletingTicket) "Delete this ticket from this device? Other tickets, saved passengers and journey templates will remain. This cannot be undone."
                     else if (cancellation) "This marks only this ticket as cancelled. It does not request a railway cancellation or refund."
+                    else if (kind == "route") "Delete both directions of this saved route? Existing tickets and other Via paths will remain."
                     else "Existing generated tickets will keep their original details.") },
                 confirmButton = { TextButton(onClick = {
                     val updated = when (kind) {
                         "profile" -> state.copy(profile = UserProfile())
                         "ticket" -> state.copy(tickets = state.tickets.filterNot { it.id == id })
+                        "route" -> state.copy(routes = state.routes.filterNot { it.pairId == id })
                         "template" -> state.copy(templates = state.templates.filterNot { it.id == id })
                         "passenger" -> state.copy(passengers = state.passengers.filterNot { it.id == id })
                         else -> state.copy(tickets = state.tickets.map { if (it.id == id) it.copy(cancelled = true) else it })

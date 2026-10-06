@@ -279,3 +279,7 @@ The login layout follows 1000153271.jpg; the status colours/card layout and sort
 ## About references
 
 1000153620.jpg supplies the About colour/spacing, contact actions and social arrangement. 1000153622.jpg, 1000153624.jpg and 1000153626.jpg supply the scrollable legal-page layout. These screens are native Compose layouts; social marks are drawn in code and CRIS attribution uses text. Legal content is original project-specific text, with an external official policy link. 1000153618.jpg supplies the mail recipient, subject and editable body placeholder. The sending account is chosen by the installed mail app.
+
+## Completed-ticket invoice reference
+
+The uploaded `DOC-20261006-WA0012.pdf` supplied the A4 invoice layout, field hierarchy, watermarks and blue Indian Railways mark. `invoice_railways.png` and `invoice_watermark.png` were extracted from this user-provided reference. The generated PDF fills fields from the saved ticket and retains both reference-only and computer-generated notices. No PDF reference personal data is hard-coded into the app.

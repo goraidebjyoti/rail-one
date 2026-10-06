@@ -237,4 +237,55 @@ class JourneyStoreTest {
         assertTrue(store.save(state))
         assertEquals(state, store.load(testNow))
     }
+    @Test fun savedRoutesReverseViaAndAllowDirectAndAlternativePaths() {
+        val first = SavedRoute(origin = " kharagpur ", destination = "howrah", via = "pku-src")
+        val routes = emptyList<SavedRoute>().saveRoutePair(first)
+            .saveRoutePair(SavedRoute(origin = "KHARAGPUR", destination = "HOWRAH"))
+            .saveRoutePair(SavedRoute(origin = "KHARAGPUR", destination = "HOWRAH", via = "ABC-DEF"))
+        assertEquals(6, routes.size)
+        assertTrue(routes.any { it.origin == "HOWRAH" && it.destination == "KHARAGPUR" && it.via == "SRC-PKU" })
+        assertEquals(2, routes.count { it.via.isBlank() })
+        assertEquals(6, routes.saveRoutePair(first.copy(id = "another", pairId = "another")).size)
+    }
+    @Test fun editingRouteUpdatesReverseWhileRetainingOtherVariants() {
+        val first = SavedRoute(origin = "A", destination = "B", via = "X-Y")
+        val routes = emptyList<SavedRoute>().saveRoutePair(first)
+            .saveRoutePair(SavedRoute(origin = "A", destination = "B", via = "Z"))
+        val edited = routes.saveRoutePair(first.copy(via = "P-Q"))
+        assertEquals(4, edited.size)
+        assertTrue(edited.any { it.pairId == first.pairId && it.via == "Q-P" })
+        assertFalse(edited.any { it.via == "X-Y" || it.via == "Y-X" })
+        assertEquals(2, edited.filterNot { it.pairId == first.pairId }.size)
+    }
+    @Test fun applyingRouteOnlyChangesStationsAndVia() {
+        val draft = validDraft()
+        val route = SavedRoute(origin = "DELHI", destination = "AGRA", via = "ABC")
+        val applied = draft.withRoute(route)
+        assertEquals(draft, applied.copy(origin = draft.origin, destination = draft.destination, via = draft.via))
+        assertEquals("DELHI", applied.origin)
+        assertEquals("ABC", applied.via)
+    }
+    @Test fun oldSnapshotMigratesRoutesWithoutChangingExistingUserData() {
+        val original = JourneyState(tickets = listOf(ticket()),
+            passengers = listOf(Passenger(name = "Saved person", mobile = "9123456789")),
+            templates = listOf(templateFromDraft(validDraft().copy(via = "PKU-SRC"))),
+            profile = UserProfile("Owner", "9876543210"), walletPaise = 855)
+        assertTrue(store.save(original))
+        val prefs = context.getSharedPreferences(PROFILES_PREFS, Context.MODE_PRIVATE)
+        val old = JSONObject(prefs.getString("journey_state_v1", null)!!).apply { remove("routes") }
+        assertTrue(prefs.edit().putString("journey_state_v1", old.toString()).commit())
+        val migrated = store.load(testNow)
+        assertEquals(original, migrated.copy(routes = emptyList()))
+        assertEquals(2, migrated.routes.size)
+        assertEquals(migrated, JourneyStore(context).load(testNow))
+    }
+    @Test fun routePairsRoundTripAndRejectMalformedVia() {
+        val routes = emptyList<SavedRoute>().saveRoutePair(SavedRoute(origin = "A", destination = "B", via = "X-Y"))
+        val original = JourneyState(routes = routes)
+        assertTrue(store.save(original))
+        assertEquals(original, JourneyStore(context).load(testNow))
+        assertNotNull(routeError(SavedRoute(origin = "A", destination = "B", via = "X--Y")))
+        assertNotNull(routeError(SavedRoute(origin = " a ", destination = "A")))
+    }
+
 }

@@ -12,9 +12,20 @@ android {
         applicationId = "com.example.railone"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
+        // CI increases the code on each run; local builds can supply -PrailOneVersionCode.
+        versionCode = providers.gradleProperty("railOneVersionCode").orNull?.toInt()
+            ?: (1_000_000 + (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 0))
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        getByName("debug") {
+            storeFile = rootProject.file("signing/rail-one-debug.jks")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     compileOptions {

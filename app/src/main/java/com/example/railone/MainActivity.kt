@@ -39,10 +39,12 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
@@ -291,6 +293,9 @@ internal fun InputScreen(
     onLoadPassenger: (Passenger) -> Unit = {},
     templateSaveLabel: String = "Save As Journey Template",
     error: String? = null,
+    routes: List<SavedRoute> = emptyList(),
+    onUseRoute: (SavedRoute) -> Unit = {},
+    onSaveRoute: () -> Unit = {},
 ) {
     Column(
         Modifier
@@ -363,6 +368,13 @@ internal fun InputScreen(
             }
 
             SectionCard(title = "Journey Route") {
+                var routesOpen by remember { mutableStateOf(false) }
+                Box {
+                    OutlinedButton(onClick = { routesOpen = true }, enabled = routes.isNotEmpty()) { Text("Use Saved Route") }
+                    DropdownMenu(expanded = routesOpen, onDismissRequest = { routesOpen = false }) {
+                        routes.forEach { route -> DropdownMenuItem(text = { Text(route.label) }, onClick = { onUseRoute(route); routesOpen = false }) }
+                    }
+                }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     Field("From Station", data.origin, setOrigin, Modifier.weight(1f))
                     Field("To Station", data.destination, setDestination, Modifier.weight(1f))
@@ -374,6 +386,7 @@ internal fun InputScreen(
                     color = Color(0xFF7A7B84)
                 )
                 Field("Via", data.via, setVia, Modifier.fillMaxWidth())
+                OutlinedButton(onClick = onSaveRoute) { Text("Save Route and Reverse") }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     Field("Adults", data.adults, setAdults, Modifier.weight(1f), KeyboardType.Number)
                     Field("Children", data.children, setChildren, Modifier.weight(1f), KeyboardType.Number)
@@ -538,7 +551,7 @@ internal fun Field(
 }
 
 @Composable
-private fun BookingHeader(onBack: () -> Unit, mobile: String? = null) {
+internal fun BookingHeader(onBack: () -> Unit, mobile: String? = null, onInvoice: (() -> Unit)? = null) {
     Box(Modifier.fillMaxWidth().background(HeaderBlue).statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().heightIn(min = 68.dp).padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically) {
@@ -554,6 +567,9 @@ private fun BookingHeader(onBack: () -> Unit, mobile: String? = null) {
                     Spacer(Modifier.height(4.dp))
                     Text("Mobile: $mobile", color = Color.White, fontSize = 14.sp, lineHeight = 18.sp)
                 }
+            }
+            if (onInvoice != null) IconButton(onClick = onInvoice, modifier = Modifier.testTag("share-invoice")) {
+                Icon(Icons.Default.Receipt, "Share journey invoice", tint = Color.White, modifier = Modifier.size(24.dp))
             }
         }
     }

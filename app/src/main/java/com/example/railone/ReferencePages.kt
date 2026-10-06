@@ -507,7 +507,9 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
     onNewTemplate: () -> Unit, onEditTemplate: (SavedJourney) -> Unit,
     onUseTemplate: (SavedJourney) -> Unit, onDeleteTemplate: (SavedJourney) -> Unit,
     onPhoto: () -> Unit = {}, onRemovePhoto: () -> Unit = {}, onWalletAdd: () -> Unit = {}, onWalletRefresh: () -> Unit = {}, onAccount: () -> Unit = onProfile,
-    loginEnabled: Boolean = false, biometricEnabled: Boolean = false, onLoginSettings: () -> Unit = {}, onBiometricToggle: () -> Unit = {}) {
+    loginEnabled: Boolean = false, biometricEnabled: Boolean = false, onLoginSettings: () -> Unit = {}, onBiometricToggle: () -> Unit = {}, onAddRoute: () -> Unit = {}, onUseRoute: (SavedRoute) -> Unit = {},
+    onEditRoute: (SavedRoute) -> Unit = {}, onDeleteRoute: (SavedRoute) -> Unit = {}) {
+    var routesExpanded by rememberSaveable { mutableStateOf(false) }
     var templatesExpanded by rememberSaveable { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize().background(Color.White).testTag("profile-content"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
@@ -600,6 +602,24 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
                     AccountTile("Transfer\nTicket", R.drawable.profile_transfer, Color(0xFFF0F8FC), Modifier.weight(1f)) { onService("Ticket transfer") }
                     AccountTile("My\nTransaction", R.drawable.profile_transactions, PalePeach, Modifier.weight(1f), onTransactions)
                     AccountTile("DeLink\nAadhar", R.drawable.profile_aadhaar, Color(0xFFF0F1EC), Modifier.weight(1f)) { onService("Aadhaar linking") }
+                }
+            }
+        }
+        item {
+            Spacer(Modifier.height(22.dp))
+            ProfileOptionCard("Saved Routes", "${state.routes.size} directions saved · independent of passengers", Icons.Default.Route, PaleBlue) { routesExpanded = !routesExpanded }
+            if (routesExpanded) {
+                TextButton(onClick = onAddRoute, modifier = Modifier.padding(horizontal = 17.dp)) { Text("Add Route") }
+                if (state.routes.isEmpty()) Text("No saved routes.", modifier = Modifier.padding(17.dp), color = Muted)
+            }
+        }
+        if (routesExpanded) items(state.routes, key = { "route-${it.id}" }) { route ->
+            Column(Modifier.padding(horizontal = 17.dp, vertical = 6.dp).fillMaxWidth().background(PaleBlue, RoundedCornerShape(12.dp)).padding(14.dp)) {
+                Text(route.label, color = Ink, fontSize = 13.sp)
+                Row {
+                    TextButton(onClick = { onUseRoute(route) }) { Text("Use") }
+                    TextButton(onClick = { onEditRoute(route) }) { Text("Edit") }
+                    TextButton(onClick = { onDeleteRoute(route) }) { Text("Delete") }
                 }
             }
         }

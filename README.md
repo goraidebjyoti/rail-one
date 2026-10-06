@@ -152,3 +152,13 @@ Home and About social buttons use the Ministry's RailMinIndia URLs with browsabl
 
 Official privacy policy: https://devaaikyam.indianrailways.gov.in/privacy-policy
 Support listing: https://play.google.com/store/apps/details?id=org.cris.aikyam
+
+## Saved routes and data-preserving updates
+
+See [UPDATE_DATA.md](UPDATE_DATA.md) for independent route pairs, automatic reversed Via stops and updating an installed demo without losing data. Keep the bundled signing key unchanged.
+
+## Completed-ticket details and invoice sharing
+
+Completed bookings open an expired-ticket summary with a receipt icon. The icon generates an A4 PDF using that saved ticket's details and opens the Android share sheet. Filename: `<ticket-ID>_journey_invoice.pdf`. It includes the reference-only notice and cannot be used as a travel ticket. Shared files are restricted to the invoice cache directory.
+
+With App Login and Biometrics enabled and an enrolled device biometric available, the system authentication prompt opens immediately after the splash animation. Successful authentication opens Home. Cancelling or unavailable biometrics leaves the mPIN login available. The prompt uses the biometric types supported by your phone; the app cannot force a sensor your device does not support.

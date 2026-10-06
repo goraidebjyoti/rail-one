@@ -340,4 +340,22 @@ class NavigationTest {
         compose.onNode(hasText("View Details") and hasAnyAncestor(hasTestTag("home-ticket-fourth"))).performClick()
         compose.onNodeWithText(fourth.data.journeyTicket).performScrollTo().assertIsDisplayed()
     }
+    @Test fun completedTicketShowsExpiredReferenceDetailsWithoutTravelQrOrConnectingButton() {
+        scenario.close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val expired = first.copy(data = first.data.copy(bookedOn = "09/05/2025 18:31", via = "PKU-SRC"))
+        JourneyStore(context).save(JourneyState(tickets = listOf(expired), profile = UserProfile("Traveller", "9876543210")))
+        launchHome()
+        compose.onNodeWithText("My Bookings", substring = false).performClick()
+        compose.onNodeWithText("Completed", substring = false).performClick()
+        compose.onNodeWithText("View Details", substring = false).performClick()
+        compose.onNodeWithTag("completed-ticket-details").assertExists()
+        compose.onNodeWithText("Ticket Expired", substring = false).assertIsDisplayed()
+        compose.onNodeWithText("2025-05-09 18:31:00", substring = false).assertExists()
+        compose.onNodeWithText("PKU-SRC", substring = false).assertExists()
+        compose.onNodeWithTag("share-invoice").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Ticket QR code").assertDoesNotExist()
+        compose.onNodeWithText("Book Connecting Journey").assertDoesNotExist()
+    }
+
 }

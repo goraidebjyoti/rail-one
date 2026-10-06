@@ -51,6 +51,7 @@ import kotlinx.coroutines.withContext
 internal class LoginSession : ViewModel() {
     var introDone by mutableStateOf(false)
     var unlocked by mutableStateOf(false)
+    var biometricAttempted by mutableStateOf(false)
 }
 private val LoginBlue = Color(0xFF0166FF)
 private val LoginInk = Color(0xFF0C2065)
@@ -88,8 +89,17 @@ internal fun LaunchGate(session: LoginSession) {
         if (!config.biometric || !available) { error = "Enable an enrolled device biometric in App Login settings."; return }
         biometricPrompt.authenticate(BiometricPrompt.PromptInfo.Builder().setTitle("Rail One")
             .setSubtitle("Unlock with your device biometric")
+            .setConfirmationRequired(false)
             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
             .setNegativeButtonText("Use mPIN").build())
+    }
+    // One automatic attempt per launch session, after both splash stages finish.
+    // Retained in the ViewModel so rotation does not reopen a cancelled prompt.
+    LaunchedEffect(session.introDone, currentLocked, config.biometric, available) {
+        if (session.introDone && currentLocked && config.biometric && available && !session.biometricAttempted) {
+            session.biometricAttempted = true
+            biometricLogin()
+        }
     }
     if (!session.introDone) BrandLaunch { session.introDone = true }
     else if (currentLocked) {

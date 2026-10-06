@@ -57,6 +57,7 @@ internal data class JourneyState(
     val profile: UserProfile = UserProfile(),
     val showServices: Boolean = true,
     val walletPaise: Long = 0,
+    val routes: List<SavedRoute> = emptyList(),
 )
 internal fun parseBookingTime(value: String): Long? {
     if (!Regex("[0-9]{2}/[0-9]{2}/[0-9]{4} [0-9]{2}:[0-9]{2}").matches(value)) return null
@@ -149,7 +150,7 @@ internal class JourneyStore(private val context: Context) {
             val journeys = loadSavedJourneys(context)
             val passengers = journeys.distinctBy { it.passengerName.trim().lowercase(Locale.ROOT) + "|" + it.mobile }
                 .map { Passenger(name = it.passengerName, mobile = it.mobile) }
-            val migrated = JourneyState(templates = journeys, passengers = passengers)
+            val migrated = JourneyState(templates = journeys, passengers = passengers, routes = routesFromTemplates(journeys))
             check(save(migrated)) { "Unable to save migrated data" }
             return migrated
         }
@@ -174,7 +175,11 @@ internal class JourneyStore(private val context: Context) {
                 it.optString("postOffice"), it.optString("city")) },
             showServices = j.getBoolean("showServices"),
             walletPaise = j.optLong("walletPaise", 0).also { require(it in 0..MAX_WALLET_PAISE) })
-        return stored
+        val compatible = if (j.has("routes")) stored.copy(routes = readArray(j.getJSONArray("routes")) { route ->
+            SavedRoute(route.getString("id"), route.getString("pairId"), route.getString("origin"), route.getString("destination"), route.optString("via"))
+        }) else stored.copy(routes = routesFromTemplates(stored.templates))
+        if (!j.has("routes")) check(save(compatible)) { "Unable to save route migration" }
+        return compatible
     }
     fun save(state: JourneyState): Boolean {
         val json = JSONObject().apply {
@@ -203,6 +208,9 @@ internal class JourneyStore(private val context: Context) {
             })
             put("showServices", state.showServices)
             put("walletPaise", state.walletPaise)
+            put("routes", writeArray(state.routes) { route -> JSONObject().apply {
+                put("id", route.id); put("pairId", route.pairId); put("origin", route.origin); put("destination", route.destination); put("via", route.via)
+            } })
         }
         return preferences.edit().putString(key, json.toString()).commit()
     }

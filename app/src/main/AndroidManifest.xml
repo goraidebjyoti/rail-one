@@ -11,6 +11,11 @@
         android:label="Rail One"
         android:supportsRtl="true"
         android:theme="@style/Theme.RailOne">
+        <provider android:name=".JourneyInvoiceProvider"
+            android:authorities="${applicationId}.invoices"
+            android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/invoice_paths" />
+        </provider>
         <activity
             android:name=".MainActivity"
             android:theme="@style/Theme.RailOne.Starting"
