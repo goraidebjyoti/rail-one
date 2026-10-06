@@ -141,3 +141,14 @@ Saved Journey Templates is now a boxed option with an icon; tap it to expand or 
 - Hold any My Bookings ticket for one second, then confirm deletion. Home has no delete gesture.
 - The Biometric tile has an animated On/Off switch. With App Login enabled and a device biometric enrolled it toggles the saved biometric setting; otherwise it opens setup. The mPIN remains available.
 - Saved passenger summaries use gender and berth abbreviations and a vertical bar before the full meal name. Selection menus retain full option names.
+
+## About, contact and external links
+
+The side-menu About option opens a scrollable page with Reach Us, four social buttons, Terms Of Use and Privacy Policy. The screens use the supplied reference layout. The legal pages contain original notices describing this local project's behaviour, rather than reproducing the official service's full legal text. A button opens the official privacy policy published through the CRIS RailOne Play Store listing.
+
+Call 139 uses ACTION_DIAL; the user places the call in the dialler. Write Email uses ACTION_SENDTO and mailto:railone.support@cris.org.in with the reference subject and message placeholder. Nothing is sent automatically. The user's mail app chooses the sending account.
+
+Home and About social buttons use the Ministry's RailMinIndia URLs with browsable ACTION_VIEW intents. Android opens an installed external social application or browser. No embedded WebView or custom tab is used. The project does not register to receive these URLs. If no compatible app exists, a brief unavailable-action message is shown.
+
+Official privacy policy: https://devaaikyam.indianrailways.gov.in/privacy-policy
+Support listing: https://play.google.com/store/apps/details?id=org.cris.aikyam

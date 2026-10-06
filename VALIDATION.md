@@ -121,3 +121,9 @@ The supplied GitHub run compiled both APKs and passed 29 of 30 tests. The sole f
 Automatic ticket removal has been removed from both load and foreground saves. Tickets become Completed at Booked On +12h and remain saved; manual deletion requires a one-second hold and confirmation. Added retention-over-one-year and passenger abbreviation regression assertions plus a single-ticket Home test. Booking form contacts come from the current profile. Reference card text spacing and separators were tightened and the biometric tile now uses an animated persistent toggle.
 
 39 instrumentation tests are included. Kotlin syntax, XML/YAML and archive checks were run locally; Android compilation and device tests cannot run here because Gradle/Android SDK/emulator are unavailable. GitHub must run the full build and test suite.
+
+## About and contact update
+
+Added About, scrollable local Terms Of Use and Privacy Policy screens, a verified official privacy-policy link, and external mail/dialler/social intents. Added two intent-contract tests and one full About → Terms/Privacy → About → Home navigation test. 42 Android tests are included. Static Kotlin parsing and XML/YAML/archive validation are available locally; Android compilation and actual handoff into installed mail, phone and social apps require GitHub/device validation.
+
+The full supplied official legal text was not reproduced. Original project-specific notices and an external official privacy-policy link are provided instead. CRIS attribution explicitly refers to the official RailOne service.

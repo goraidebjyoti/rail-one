@@ -135,10 +135,14 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
         }
     }
     fun back() {
+        if (page == "Terms" || page == "Privacy") { page = "About"; return }
         if (page == "Editor" && editorReturnTicketId != null) {
             selectedId = editorReturnTicketId; editorReturnTicketId = null; page = "Ticket"
         } else { page = "Main"; tab = returnTab }
         error = null
+    }
+    fun openExternal(intent: Intent) {
+        runCatching { context.startActivity(intent) }.onFailure { notify("No app is available to open this action.") }
     }
     fun requestBack() {
         if (page == "Editor" && draftRaw != draftBaselineRaw) pendingDiscard = true else back()
@@ -170,6 +174,11 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
             ) { padding ->
                 Box(Modifier.fillMaxSize().padding(padding)) {
                     when (page) {
+                        "About" -> AboutPage(onBack = { back() }, onSocial = { openExternal(railwaySocialIntent(it)) },
+                            onMail = { openExternal(railwayMailIntent()) }, onCall = { openExternal(railwayCallIntent()) },
+                            onTerms = { page = "Terms" }, onPrivacy = { page = "Privacy" })
+                        "Terms", "Privacy" -> RailwayLegalPage(page == "Privacy", onBack = { back() },
+                            onOfficialPolicy = { openExternal(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(OFFICIAL_RAILONE_PRIVACY_URL)).addCategory(Intent.CATEGORY_BROWSABLE)) })
                         "Editor" -> InputScreen(
                             data = draft, savedJourneys = state.templates,
                             setPassengerName = { setDraft(draft.copy(passengerName = it)) },
@@ -248,7 +257,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                                 onBookings = { tab = "My Bookings" }, onView = { openTicket(it) },
                                 onRepeat = { edit(renewedDraft(it.data)) },
                                 onService = { /* Service not implemented. */ }, onSocial = { url ->
-                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+                                    openExternal(railwaySocialIntent(url))
                                 })
                             "My Bookings" -> BookingsPage(state.tickets, now,
                                 filter = bookingsFilter, newestFirst = bookingsNewestFirst,
@@ -283,6 +292,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
             }
         }
         if (menuOpen) MenuDrawer(state, onDismiss = { menuOpen = false },
+            onAbout = { menuOpen = false; returnTab = tab; page = "About" },
             onWalletAdd = { menuOpen = false; walletEditing = true },
             onProfile = { menuOpen = false; tab = "You" },
             onServices = { persist(state.copy(showServices = !state.showServices)); menuOpen = false },

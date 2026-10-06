@@ -275,3 +275,7 @@ Three transparent gender icons are extracted from 1000153103.jpg: male [88,541,1
 | booking_filter_completed / cancelled / all | Existing booking_filter_active | Ticket fill recoloured green / red / blue; outline retained |
 
 The login layout follows 1000153271.jpg; the status colours/card layout and sorting sheet follow 1000153341.jpg, 1000153339.jpg and 1000153345.jpg. Native launcher/splash masks vary by Android version and launcher. No reference status bar or phone-specific navigation bar is embedded in these assets.
+
+## About references
+
+1000153620.jpg supplies the About colour/spacing, contact actions and social arrangement. 1000153622.jpg, 1000153624.jpg and 1000153626.jpg supply the scrollable legal-page layout. These screens are native Compose layouts; social marks are drawn in code and CRIS attribution uses text. Legal content is original project-specific text, with an external official policy link. 1000153618.jpg supplies the mail recipient, subject and editable body placeholder. The sending account is chosen by the installed mail app.

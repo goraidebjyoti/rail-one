@@ -212,6 +212,22 @@ class NavigationTest {
         org.junit.Assert.assertEquals(first, tickets.find { it.id == first.id })
         org.junit.Assert.assertEquals(second, tickets.find { it.id == second.id })
     }
+    @Test fun aboutLegalPagesScrollAndReturnThroughAboutToHome() {
+        compose.onNodeWithText("Menu").performClick()
+        compose.onNodeWithText("About", substring = false).performClick()
+        compose.onNodeWithText("Reach Us").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Call 139").assertExists()
+        compose.onNodeWithText("Write Email").assertExists()
+        compose.onNodeWithContentDescription("Ministry of Railways on Instagram").assertExists()
+        compose.onNodeWithText("Terms Of Use").performScrollTo().performClick()
+        compose.onNodeWithText("Availability").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithText("Privacy Policy").performScrollTo().performClick()
+        compose.onNodeWithText("Official RailOne Privacy Policy").assertExists()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithTag("home-content").assertExists()
+    }
     @Test fun sideMenuTogglesHomeServices() {
         compose.onNodeWithText("More Offerings").assertIsDisplayed()
         compose.onNodeWithText("Menu").performClick()

@@ -45,6 +45,27 @@ class JourneyStoreTest {
         assertEquals("26 Y, T, NC | Non Veg", passengerSummary(passenger.copy(gender = "Trans Gender")))
         assertEquals("No Preference", passenger.berth)
     }
+    @Test fun aboutContactIntentsOpenMailComposerAndDiallerWithoutSendingOrCalling() {
+        val mail = railwayMailIntent()
+        assertEquals(android.content.Intent.ACTION_SENDTO, mail.action)
+        assertTrue(mail.data.toString().startsWith("mailto:railone.support@cris.org.in?"))
+        assertEquals("SuperApp for Indian Railways :", mail.getStringExtra(android.content.Intent.EXTRA_SUBJECT))
+        assertEquals("Write Your Message Here!", mail.getStringExtra(android.content.Intent.EXTRA_TEXT))
+        val call = railwayCallIntent()
+        assertEquals(android.content.Intent.ACTION_DIAL, call.action)
+        assertEquals("tel:139", call.data.toString())
+    }
+    @Test fun railwaySocialLinksUseBrowsableExternalViewIntents() {
+        assertEquals(4, RAILWAY_SOCIAL_LINKS.size)
+        RAILWAY_SOCIAL_LINKS.forEach { (_, url) ->
+            val intent = railwaySocialIntent(url)
+            assertEquals(android.content.Intent.ACTION_VIEW, intent.action)
+            assertEquals(url, intent.data.toString())
+            assertTrue(intent.hasCategory(android.content.Intent.CATEGORY_BROWSABLE))
+            assertNull(intent.component)
+            assertNull(intent.`package`)
+        }
+    }
     @Test fun walletAndPhotoPersistAndOlderSnapshotsKeepTickets() {
         val one = ticket()
         val profile = UserProfile("Traveller", "9876543210", "profile-1234.jpg")

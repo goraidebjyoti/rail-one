@@ -650,7 +650,7 @@ private fun DrawerRow(text: String, icon: Int, onClick: () -> Unit) {
 }
 @Composable
 internal fun MenuDrawer(state: JourneyState, onDismiss: () -> Unit, onProfile: () -> Unit,
-    onServices: () -> Unit, onShare: () -> Unit, onWalletAdd: () -> Unit = {}) {
+    onServices: () -> Unit, onShare: () -> Unit, onWalletAdd: () -> Unit = {}, onAbout: () -> Unit = {}) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val dialogView = LocalView.current
         SideEffect { (dialogView.parent as? DialogWindowProvider)?.window?.setDimAmount(0f) }
@@ -672,7 +672,7 @@ internal fun MenuDrawer(state: JourneyState, onDismiss: () -> Unit, onProfile: (
                 DrawerRow("FAQs", R.drawable.menu_faq) { /* Service not implemented. */ }
                 DrawerRow("Help & Support", R.drawable.menu_support) { /* Service not implemented. */ }
                 DrawerRow("Reserved Services - Counter", R.drawable.menu_counter) { /* Service not implemented. */ }
-                DrawerRow("About", R.drawable.menu_about) { /* Service not implemented. */ }
+                DrawerRow("About", R.drawable.menu_about, onAbout)
                 DrawerRow("Rate Us", R.drawable.menu_rate) { /* Service not implemented. */ }
                 DrawerRow("Share", R.drawable.menu_share, onShare)
                 Spacer(Modifier.height(30.dp))
