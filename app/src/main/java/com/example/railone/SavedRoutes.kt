@@ -65,7 +65,7 @@ internal fun List<SavedRoute>.editRoute(input: SavedRoute, updateReverse: Boolea
 
 internal fun TicketData.withRoute(route: SavedRoute): TicketData = copy(origin = normalStation(route.origin), destination = normalStation(route.destination), via = normalVia(route.via),
     distance = route.distance.takeIf { it.isNotBlank() }?.let(::normalDistance) ?: distance,
-    fare = route.fares[trainType].orEmpty())
+    fare = calculatedRouteFare(route.fares[trainType].orEmpty()))
 internal fun routesFromTemplates(templates: List<SavedJourney>): List<SavedRoute> = templates.fold(emptyList()) { routes, template ->
     val route = SavedRoute(origin = template.origin, destination = template.destination, via = template.via, distance = template.distance)
     if (routeError(route) == null) routes.saveRoutePair(route) else routes
@@ -92,8 +92,8 @@ internal fun SavedRouteSheet(route: SavedRoute, isEditing: Boolean = false, onDi
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth(), singleLine = true)
         Text("Leave Via empty for a direct route. Different Via paths for the same stations can be saved separately.", fontSize = 12.sp)
-        Text("Saved fares by train type (₹)", fontSize = 14.sp)
-        Text("Leave a fare empty if it is not stored. Selecting that train type will require a manual fare.", fontSize = 12.sp)
+        Text("Fare for one adult by train type (₹)", fontSize = 14.sp)
+        Text("These are one-adult, one-way fares. Leave a fare empty if it is not stored. Selecting that train type will require a manual fare.", fontSize = 12.sp)
         OutlinedTextField(ordinaryFare, { ordinaryFare = it; error = null }, label = { Text("Ordinary fare (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
         OutlinedTextField(expressFare, { expressFare = it; error = null }, label = { Text("Mail/Express fare (optional)") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
@@ -167,11 +167,22 @@ internal fun TicketData.savedPath(routes: List<SavedRoute>): SavedRoute? = match
     .filter { normalVia(it.via) == normalVia(via) }.singleOrNull()
 internal fun TicketData.withTrainTypeFare(type: String, routes: List<SavedRoute>): TicketData {
     val route = savedPath(routes)
-    return copy(trainType = type, fare = if (route == null) fare else route.fares[type].orEmpty())
+    return copy(trainType = type, fare = if (route == null) fare else copy(trainType = type).calculatedRouteFare(route.fares[type].orEmpty()))
 }
 internal fun TicketData.routeForSaving(routes: List<SavedRoute>): SavedRoute {
     val existing = savedPath(routes)
     val storedFares = existing?.fares.orEmpty()
-    val updatedFares = if (trainType in TRAIN_TYPE_OPTIONS && validRouteFare(fare)) storedFares + (trainType to fare) else storedFares
+    val updatedFares = if (trainType in TRAIN_TYPE_OPTIONS && validRouteFare(fare)) storedFares + (trainType to singleAdultFare()) else storedFares
     return (existing ?: SavedRoute()).copy(origin = origin, destination = destination, via = via, distance = distance, fares = updatedFares)
 }
+
+internal fun TicketData.fareMultiplier(): Int = (adults.toIntOrNull()?.coerceIn(1, 4) ?: 1) *
+    if (trainType == "ORDINARY" && ticketType == "RETURN") 2 else 1
+internal fun TicketData.calculatedRouteFare(base: String): String = base.toBigDecimalOrNull()?.let {
+    it.multiply(fareMultiplier().toBigDecimal()).setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
+}.orEmpty()
+internal fun TicketData.singleAdultFare(): String = fare.toBigDecimal().divide(fareMultiplier().toBigDecimal(), 2, java.math.RoundingMode.HALF_UP).toPlainString()
+internal fun TicketData.withAdultCount(value: String, routes: List<SavedRoute>): TicketData =
+    copy(adults = value).withTrainTypeFare(trainType, routes)
+internal fun TicketData.withTicketTypeFare(value: String, routes: List<SavedRoute>): TicketData =
+    copy(ticketType = value).withTrainTypeFare(trainType, routes)

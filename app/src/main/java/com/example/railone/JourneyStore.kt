@@ -98,8 +98,8 @@ internal fun draftError(d: TicketData): String? {
     if (distance == null || !distance.isFinite() || distance <= 0) return "Enter a positive distance in km."
     val adults = d.adults.toIntOrNull()
     val children = d.children.toIntOrNull()
-    if (adults == null || children == null || adults < 0 || children < 0 || adults.toLong() + children == 0L)
-        return "Enter valid counts with at least one traveller."
+    if (adults == null || children == null || adults !in 1..4 || children < 0 || adults.toLong() + children == 0L)
+        return "Enter 1–4 adults and a valid child count."
     val booked = parseBookingTime(d.bookedOn) ?: return "Booked On must use dd/MM/yyyy HH:mm."
     val until = parseBookingTime(d.validTill) ?: return "Valid Till must use dd/MM/yyyy HH:mm."
     if (until <= booked) return "Valid Till must be later than Booked On."

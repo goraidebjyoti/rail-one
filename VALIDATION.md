@@ -155,3 +155,7 @@ The user's uploaded CI run compiled the app and test APKs and completed 67 instr
 ## Saved fares by train type
 
 Added optional fares for the four supported train types, route/train-type fare lookup, editable booking overrides, reverse-direction fare copying and independent fare edits. Added four model regressions covering persistence, reverse copying, missing fares, independent edits, booking saves and pre-fare migration; added one navigation regression for train-type lookup and manual overrides. Total: 72 instrumentation tests included, not executed locally. Kotlin syntax parsing, ticket JSON symmetry, XML and workflow checks passed. No Android SDK/Gradle/emulator is available here, so compilation and device behavior remain unverified.
+
+## Adult fares and Others navigation
+
+Added exact decimal adult multipliers (1–4), ordinary-only return doubling and base fare recovery when saving a total. New bookings reject adult counts outside 1–4. Added an Others tile and separate searchable route/template lists with direct/Via filters; adjusted existing login/user navigation tests for the new entry point. Added three model tests and one navigation regression, bringing the suite to 76 tests. Home action buttons now use a purple tint. Kotlin parser, XML, ticket serialization and workflow checks pass. Android compilation/instrumentation remain unverified locally.

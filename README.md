@@ -184,3 +184,11 @@ Saved routes now include optional rupee fares for Ordinary, Mail/Express, Superf
 New routes copy fares to the reverse direction. In Edit Route, “Update reverse route too” lets you change both directions together or just the selected direction. Existing routes migrate with empty fare maps and existing ticket snapshots stay unchanged.
 
 This update includes 72 Android instrumentation tests. Local syntax, XML and workflow checks passed; Android compilation and emulator tests were not run locally.
+
+## Adult fare totals and Others
+
+Saved fares represent one adult travelling one way. For a saved route, changing Adults (1–4) recalculates the total. RETURN doubles only ORDINARY fares; other train types retain the one-way multiplier. Child counts do not affect this saved-adult fare calculation. The booking fare can still be overridden. Saving a fare from a multi-adult/ordinary-return draft converts its total back to a one-adult, one-way amount in the route editor.
+
+You → Others now groups Saved Routes, Users, App Login and Saved Journey Templates. The Others tile matches the existing account tile dimensions and corner radius. Routes and templates open separate pages with search, result counts, All/Direct/Via filters and Use/Edit/Delete actions. Home ticket action buttons have a purple tint matching the supplied reference. Existing stored tickets and route data are unchanged.
+
+76 instrumentation tests are included. Static syntax/XML/workflow checks passed; Android build and emulator tests were not run locally.

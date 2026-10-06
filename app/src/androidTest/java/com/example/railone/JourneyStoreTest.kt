@@ -417,4 +417,29 @@ class JourneyStoreTest {
         assertEquals(original, JourneyStore(context).load(testNow))
     }
 
+    @Test fun savedAdultFareScalesForCountsAndOnlyOrdinaryReturn() {
+        val route = SavedRoute(origin = "A", destination = "B", distance = "116", fares = mapOf("ORDINARY" to "30.00", "MAIL/EXPRESS" to "60.00"))
+        val routes = emptyList<SavedRoute>().saveRoutePair(route)
+        for (adults in 1..4) {
+            val draft = validDraft().copy(adults = adults.toString(), trainType = "ORDINARY", ticketType = "JOURNEY").withRoute(route)
+            assertEquals(formatFare((30 * adults).toString()), draft.fare)
+            assertEquals(formatFare((60 * adults).toString()), draft.withTicketTypeFare("RETURN", routes).fare)
+            val express = draft.withTicketTypeFare("RETURN", routes).withTrainTypeFare("MAIL/EXPRESS", routes)
+            assertEquals(formatFare((60 * adults).toString()), express.fare)
+        }
+        assertEquals("120.00", validDraft().copy(trainType = "ORDINARY", ticketType = "JOURNEY").withRoute(route).withAdultCount("4", routes).fare)
+    }
+    @Test fun savingMultipliedFareStoresOneAdultOneWayAmount() {
+        val routes = emptyList<SavedRoute>().saveRoutePair(SavedRoute(origin = "A", destination = "B", distance = "116", fares = mapOf("ORDINARY" to "30.00")))
+        val draft = validDraft().copy(adults = "4", trainType = "ORDINARY", ticketType = "RETURN").withRoute(routes.first())
+        assertEquals("240.00", draft.fare)
+        assertEquals("30.00", draft.routeForSaving(routes).fares["ORDINARY"])
+        assertEquals("40.00", draft.copy(fare = "320.00").routeForSaving(routes).fares["ORDINARY"])
+    }
+    @Test fun bookingRejectsMoreThanFourAdults() {
+        assertNull(draftError(validDraft().copy(adults = "4")))
+        assertNotNull(draftError(validDraft().copy(adults = "5")))
+        assertNotNull(draftError(validDraft().copy(adults = "0")))
+    }
+
 }

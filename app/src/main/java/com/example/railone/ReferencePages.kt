@@ -292,11 +292,11 @@ private fun HomeJourneyCard(ticket: StoredTicket, onView: (StoredTicket) -> Unit
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Unreserved", color = Color(0xFFBCEDBC), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             OutlinedButton(onClick = { onRepeat(ticket) }, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
-                shape = CircleShape, modifier = Modifier.height(24.dp), contentPadding = PaddingValues(horizontal = 9.dp)) {
+                shape = CircleShape, colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFF514398).copy(alpha = .65f)), modifier = Modifier.height(24.dp), contentPadding = PaddingValues(horizontal = 9.dp)) {
                 Text("Book Again", color = Color.White, fontSize = 10.sp, lineHeight = 12.sp)
             }
             OutlinedButton(onClick = { onView(ticket) }, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
-                shape = CircleShape, modifier = Modifier.height(24.dp), contentPadding = PaddingValues(horizontal = 9.dp)) {
+                shape = CircleShape, colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFF514398).copy(alpha = .65f)), modifier = Modifier.height(24.dp), contentPadding = PaddingValues(horizontal = 9.dp)) {
                 Text("View Details", color = Color.White, fontSize = 10.sp, lineHeight = 12.sp)
             }
         }
@@ -509,8 +509,17 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
     onPhoto: () -> Unit = {}, onRemovePhoto: () -> Unit = {}, onWalletAdd: () -> Unit = {}, onWalletRefresh: () -> Unit = {}, onAccount: () -> Unit = onProfile,
     loginEnabled: Boolean = false, biometricEnabled: Boolean = false, onLoginSettings: () -> Unit = {}, onBiometricToggle: () -> Unit = {}, onAddRoute: () -> Unit = {}, onUseRoute: (SavedRoute) -> Unit = {},
     onEditRoute: (SavedRoute) -> Unit = {}, onDeleteRoute: (SavedRoute) -> Unit = {}, onSwitchUser: () -> Unit = {}) {
-    var routesExpanded by rememberSaveable { mutableStateOf(false) }
-    var templatesExpanded by rememberSaveable { mutableStateOf(false) }
+    var section by rememberSaveable { mutableStateOf("Profile") }
+    androidx.activity.compose.BackHandler(enabled = section != "Profile") {
+        section = if (section == "Others") "Profile" else "Others"
+    }
+    if (section != "Profile") {
+        ProfileLibraryPage(section, state, onBack = { section = if (section == "Others") "Profile" else "Others" },
+            onSection = { section = it }, onSwitchUser = onSwitchUser, onLoginSettings = onLoginSettings,
+            onAddRoute = onAddRoute, onUseRoute = onUseRoute, onEditRoute = onEditRoute, onDeleteRoute = onDeleteRoute,
+            onNewTemplate = onNewTemplate, onUseTemplate = onUseTemplate, onEditTemplate = onEditTemplate, onDeleteTemplate = onDeleteTemplate)
+        return
+    }
     LazyColumn(Modifier.fillMaxSize().background(Color.White).testTag("profile-content"), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
             Column(Modifier.fillMaxWidth().background(PaleBlue, RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
@@ -606,48 +615,14 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
             }
         }
         item {
-            Spacer(Modifier.height(22.dp))
-            ProfileOptionCard("Saved Routes", "${state.routes.size} directions saved · independent of passengers", Icons.Default.Route, PaleBlue) { routesExpanded = !routesExpanded }
-            if (routesExpanded) {
-                TextButton(onClick = onAddRoute, modifier = Modifier.padding(horizontal = 17.dp)) { Text("Add Route") }
-                if (state.routes.isEmpty()) Text("No saved routes.", modifier = Modifier.padding(17.dp), color = Muted)
-            }
-        }
-        if (routesExpanded) items(state.routes, key = { "route-${it.id}" }) { route ->
-            Column(Modifier.padding(horizontal = 17.dp, vertical = 6.dp).fillMaxWidth().background(PaleBlue, RoundedCornerShape(12.dp)).padding(14.dp)) {
-                Text(route.label, color = Ink, fontSize = 13.sp)
-                if (route.fares.isNotEmpty()) Text(route.fares.entries.joinToString(" · ") { "${it.key}: ₹${it.value}" }, color = Muted, fontSize = 11.sp)
-                Row {
-                    TextButton(onClick = { onUseRoute(route) }) { Text("Use") }
-                    TextButton(onClick = { onEditRoute(route) }) { Text("Edit") }
-                    TextButton(onClick = { onDeleteRoute(route) }) { Text("Delete") }
+            Row(Modifier.padding(horizontal = 17.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Column(Modifier.weight(1f).height(100.dp).background(PaleViolet, RoundedCornerShape(10.dp))
+                    .clickable { section = "Others" }.padding(top = 14.dp, bottom = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.Apps, null, tint = Blue, modifier = Modifier.size(31.dp))
+                    Spacer(Modifier.height(7.dp))
+                    Text("Others", color = Ink, fontSize = 13.sp, lineHeight = 17.sp)
                 }
-            }
-        }
-        item {
-            Spacer(Modifier.height(22.dp))
-            ProfileOptionCard("Users", "${state.profile.username.ifBlank { "Username not set" }} · switch or add a local user", Icons.Default.People, PaleBlue, onSwitchUser)
-            Spacer(Modifier.height(12.dp))
-            ProfileOptionCard("App Login", if (loginEnabled) if (biometricEnabled) "Enabled · mPIN and device biometrics" else "Enabled · mPIN" else "Off · set a six-digit mPIN", Icons.Default.Lock, PaleBlue, onLoginSettings)
-            Spacer(Modifier.height(12.dp))
-            ProfileOptionCard("Saved Journey Templates", "${state.templates.size} saved · tap to ${if (templatesExpanded) "hide" else "open"}", Icons.Default.Bookmark, PaleViolet) { templatesExpanded = !templatesExpanded }
-            if (templatesExpanded) {
-                Row(Modifier.padding(horizontal = 17.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Reusable journey details", color = Ink, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onNewTemplate) { Text("Add", fontSize = 12.sp) }
-                }
-                if (state.templates.isEmpty()) Text("No saved templates.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(17.dp))
-            }
-        }
-        if (templatesExpanded)        items(state.templates, key = { it.id }) { template ->
-            Column(Modifier.padding(horizontal = 17.dp, vertical = 6.dp).fillMaxWidth().background(PaleViolet, RoundedCornerShape(12.dp)).padding(14.dp)) {
-                Text(template.passengerName, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Text("${template.origin} → ${template.destination}", color = Ink, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
-                Row {
-                    TextButton(onClick = { onUseTemplate(template) }) { Text("Use", fontSize = 12.sp) }
-                    TextButton(onClick = { onEditTemplate(template) }) { Text("Edit", fontSize = 12.sp) }
-                    TextButton(onClick = { onDeleteTemplate(template) }) { Text("Delete", fontSize = 12.sp) }
-                }
+                Spacer(Modifier.weight(1f)); Spacer(Modifier.weight(1f))
             }
         }
     }
@@ -732,5 +707,76 @@ private fun BiometricTile(enabled: Boolean, modifier: Modifier, onClick: () -> U
         }
         Spacer(Modifier.height(7.dp))
         Text("Biometric", color = Ink, fontSize = 13.sp, lineHeight = 17.sp)
+    }
+}
+
+@Composable
+private fun ProfileLibraryPage(section: String, state: JourneyState, onBack: () -> Unit, onSection: (String) -> Unit,
+    onSwitchUser: () -> Unit, onLoginSettings: () -> Unit, onAddRoute: () -> Unit,
+    onUseRoute: (SavedRoute) -> Unit, onEditRoute: (SavedRoute) -> Unit, onDeleteRoute: (SavedRoute) -> Unit,
+    onNewTemplate: () -> Unit, onUseTemplate: (SavedJourney) -> Unit, onEditTemplate: (SavedJourney) -> Unit, onDeleteTemplate: (SavedJourney) -> Unit) {
+    var query by rememberSaveable(section) { mutableStateOf("") }
+    var directOnly by rememberSaveable(section) { mutableStateOf(false) }
+    var withViaOnly by rememberSaveable(section) { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize().background(Color.White)) {
+        Row(Modifier.fillMaxWidth().background(Blue).statusBarsPadding().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back", tint = Color.White) }
+            Text(section, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        }
+        if (section == "Others") {
+            LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 20.dp)) {
+                item { ProfileOptionCard("Saved Routes", "${state.routes.size} directions saved", Icons.Default.Route, PaleBlue) { onSection("Saved Routes") } }
+                item { ProfileOptionCard("Users", "Switch or add a local user", Icons.Default.People, PaleBlue, onSwitchUser) }
+                item { ProfileOptionCard("App Login", "Set mPIN and device biometric login", Icons.Default.Lock, PaleBlue, onLoginSettings) }
+                item { ProfileOptionCard("Saved Journey Templates", "${state.templates.size} saved", Icons.Default.Bookmark, PaleViolet) { onSection("Saved Journey Templates") } }
+            }
+        } else {
+            OutlinedTextField(query, { query = it }, label = { Text("Search stations, Via or details") }, leadingIcon = { Icon(Icons.Default.Search, null) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 17.dp, vertical = 8.dp).testTag("saved-search"), singleLine = true)
+            Row(Modifier.padding(horizontal = 17.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = !directOnly && !withViaOnly, onClick = { directOnly = false; withViaOnly = false }, label = { Text("All") })
+                FilterChip(selected = directOnly, onClick = { directOnly = !directOnly; withViaOnly = false }, label = { Text("Direct") })
+                FilterChip(selected = withViaOnly, onClick = { withViaOnly = !withViaOnly; directOnly = false }, label = { Text("Via") })
+            }
+            fun matches(text: String, via: String): Boolean = text.contains(query.trim(), ignoreCase = true) &&
+                (!directOnly || via.isBlank()) && (!withViaOnly || via.isNotBlank())
+            val routes = state.routes.filter { matches(it.label + " " + it.fares.toString(), it.via) }
+            val templates = state.templates.filter { matches("${it.origin} ${it.destination} ${it.via} ${it.passengerName} ${it.mobile} ${it.trainType} ${it.ticketType} ${it.className} ${it.distance} ${it.fare}", it.via) }
+            LazyColumn(Modifier.weight(1f).testTag("saved-library-list"), contentPadding = PaddingValues(17.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                item {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${if (section == "Saved Routes") routes.size else templates.size} found", modifier = Modifier.weight(1f), color = Muted)
+                        TextButton(onClick = if (section == "Saved Routes") onAddRoute else onNewTemplate) { Text(if (section == "Saved Routes") "Add Route" else "Add Template") }
+                    }
+                }
+                if (section == "Saved Routes") {
+                    if (routes.isEmpty()) item { Text("No matching routes.", color = Muted) }
+                    items(routes, key = { it.id }) { route ->
+                        Column(Modifier.fillMaxWidth().background(PaleBlue, RoundedCornerShape(12.dp)).padding(14.dp)) {
+                            Text(route.label, color = Ink)
+                            if (route.fares.isNotEmpty()) Text(route.fares.entries.joinToString(" · ") { "${it.key}: ₹${it.value}/adult" }, color = Muted, fontSize = 11.sp)
+                            Row {
+                                TextButton(onClick = { onUseRoute(route) }) { Text("Use") }
+                                TextButton(onClick = { onEditRoute(route) }) { Text("Edit") }
+                                TextButton(onClick = { onDeleteRoute(route) }) { Text("Delete") }
+                            }
+                        }
+                    }
+                } else {
+                    if (templates.isEmpty()) item { Text("No matching templates.", color = Muted) }
+                    items(templates, key = { it.id }) { template ->
+                        Column(Modifier.fillMaxWidth().background(PaleViolet, RoundedCornerShape(12.dp)).padding(14.dp)) {
+                            Text("${template.origin} → ${template.destination}", color = Ink)
+                            Text("${template.passengerName} · ${template.via.ifBlank { "Direct" }} · ${template.trainType}", color = Muted, fontSize = 12.sp)
+                            Row {
+                                TextButton(onClick = { onUseTemplate(template) }) { Text("Use") }
+                                TextButton(onClick = { onEditTemplate(template) }) { Text("Edit") }
+                                TextButton(onClick = { onDeleteTemplate(template) }) { Text("Delete") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

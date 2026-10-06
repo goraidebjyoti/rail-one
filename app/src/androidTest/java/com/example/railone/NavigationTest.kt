@@ -45,7 +45,8 @@ class NavigationTest {
     @After fun stop() { scenario.close() }
     @Test fun optionalLoginCanBeConfiguredAndMpinUnlocksOnlyAfterCorrectEntry() {
         compose.onNodeWithText("You").performClick()
-        compose.onNodeWithTag("profile-content").performScrollToNode(hasText("App Login"))
+        compose.onNodeWithTag("profile-content").performScrollToNode(hasText("Others"))
+        compose.onNodeWithText("Others").performClick()
         compose.onNodeWithText("App Login").performClick()
         compose.onNodeWithTag("login-enable").performClick()
         compose.onNode(hasSetTextAction() and hasText("New mPIN")).performTextInput("123456")
@@ -396,7 +397,8 @@ class NavigationTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         AppLockStore(context, ORIGINAL_USER_ID).save(true, false, "123456")
         compose.onNodeWithText("You", substring = false).performClick()
-        compose.onNodeWithTag("profile-content").performScrollToNode(hasText("Users", substring = false))
+        compose.onNodeWithTag("profile-content").performScrollToNode(hasText("Others"))
+        compose.onNodeWithText("Others").performClick()
         compose.onNodeWithText("Users", substring = false).performClick()
         compose.onNodeWithText("Add User", substring = false).performClick()
         compose.onNode(hasSetTextAction() and hasText("Full Name")).performScrollTo().performTextInput("Second User")
@@ -406,7 +408,8 @@ class NavigationTest {
         compose.waitUntil(timeoutMillis = 8000) { JourneyStore(context).load().profile.username == "second" }
         org.junit.Assert.assertTrue(JourneyStore(context).load().tickets.isEmpty())
         compose.onNodeWithText("You", substring = false).performClick()
-        compose.onNodeWithTag("profile-content").performScrollToNode(hasText("Users", substring = false))
+        compose.onNodeWithTag("profile-content").performScrollToNode(hasText("Others"))
+        compose.onNodeWithText("Others").performClick()
         compose.onNodeWithText("Users", substring = false).performClick()
         compose.onNodeWithText("Traveller · traveller", substring = false).performClick()
         compose.waitUntil(timeoutMillis = 8000) { compose.onAllNodesWithTag("login-pin").fetchSemanticsNodes().isNotEmpty() }
@@ -434,6 +437,30 @@ class NavigationTest {
         compose.onNode(hasSetTextAction() and hasText("Fare (₹)")).performScrollTo().assertTextContains("60.00")
         compose.onNode(hasSetTextAction() and hasText("Fare (₹)")).performTextReplacement("65.00")
         compose.onNode(hasSetTextAction() and hasText("Fare (₹)")).assertTextContains("65.00")
+    }
+
+    @Test fun othersOpensSearchableRoutesAndTemplatesPages() {
+        scenario.close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val routes = emptyList<SavedRoute>().saveRoutePair(SavedRoute(origin = "DELHI", destination = "AGRA", via = "MATHURA", distance = "175"))
+            .saveRoutePair(SavedRoute(origin = "HOWRAH", destination = "KHARAGPUR", distance = "116"))
+        val template = templateFromDraft(first.data)
+        JourneyStore(context).save(JourneyState(routes = routes, templates = listOf(template), profile = UserProfile("Traveller", "9876543210", username = "traveller")))
+        launchHome()
+        compose.onNodeWithText("You").performClick()
+        compose.onNodeWithTag("profile-content").performScrollToNode(hasText("Others"))
+        compose.onNodeWithText("Others").performClick()
+        compose.onNodeWithText("Saved Routes").performClick()
+        compose.onNodeWithTag("saved-search").performTextInput("MATHURA")
+        compose.onNodeWithText("2 found").assertExists()
+        compose.onNodeWithText("Direct", substring = false).performClick()
+        compose.onNodeWithText("No matching routes.").assertExists()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithText("Saved Journey Templates").performClick()
+        compose.onNodeWithTag("saved-search").performTextInput("NOT-A-STATION")
+        compose.onNodeWithText("No matching templates.").assertExists()
+        compose.onNodeWithTag("saved-search").performTextReplacement(first.data.origin)
+        compose.onNodeWithText("1 found").assertExists()
     }
 
 }

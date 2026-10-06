@@ -192,7 +192,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                             setDistance = { setDraft(draft.copy(distance = it)) },
                             setDestination = { setDraft(draft.copy(destination = it.uppercase(java.util.Locale.ROOT)).fillUniqueSavedRoute(state.routes)) },
                             setVia = { setDraft(draft.copy(via = it.uppercase(java.util.Locale.ROOT)).withTrainTypeFare(draft.trainType, state.routes)) },
-                            setAdults = { setDraft(draft.copy(adults = it.filter(Char::isDigit))) },
+                            setAdults = { setDraft(draft.withAdultCount(it.filter(Char::isDigit).takeIf { value -> value.isEmpty() || (value.toIntOrNull()?.let { it in 1..4 } == true) } ?: draft.adults, state.routes)) },
                             setChildren = { setDraft(draft.copy(children = it.filter(Char::isDigit))) },
                             setBookedOn = { setDraft(draft.copy(bookedOn = it, bookingDateTime = toTicketDisplayDateTime(it),
                                 validTill = addHours(it, 3) ?: draft.validTill)) },
@@ -200,7 +200,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                             resetBookedOnToNow = { setDraft(renewedDraft(draft)) },
                             setClassName = { setDraft(draft.copy(className = it)) },
                             setTrainType = { setDraft(draft.withTrainTypeFare(it, state.routes)) },
-                            setTicketType = { setDraft(draft.copy(ticketType = it)) },
+                            setTicketType = { setDraft(draft.withTicketTypeFare(it, state.routes)) },
                             setFare = { setDraft(draft.copy(fare = sanitizeFareInput(it))) },
                             onFareFocusLost = {
                                 if (draft.fare.isNotBlank()) setDraft(draft.copy(fare = formatFare(draft.fare)))

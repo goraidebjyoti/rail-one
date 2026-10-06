@@ -404,7 +404,7 @@ internal fun InputScreen(
                 Field("Via", data.via, setVia, Modifier.fillMaxWidth())
                 OutlinedButton(onClick = onSaveRoute) { Text("Save Route and Reverse") }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Field("Adults", data.adults, setAdults, Modifier.weight(1f), KeyboardType.Number)
+                    Field("Adults (1–4)", data.adults, setAdults, Modifier.weight(1f), KeyboardType.Number)
                     Field("Children", data.children, setChildren, Modifier.weight(1f), KeyboardType.Number)
                 }
             }
