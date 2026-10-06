@@ -41,6 +41,8 @@ internal data class StoredTicket(
     val countdownEndsAt: Long,
     val accentIndex: Int,
     val cancelled: Boolean = false,
+    val ownerUserId: String = ORIGINAL_USER_ID,
+    val ownerUsername: String = "",
 ) {
     fun status(now: Long): String = when {
         cancelled -> "Cancelled"
@@ -131,12 +133,13 @@ private fun <T> writeArray(items: List<T>, write: (T) -> JSONObject): JSONArray 
     JSONArray().apply { items.forEach { put(write(it)) } }
 
 /** One atomic snapshot. Legacy storage is left intact; invalid storage is never overwritten. */
-internal class JourneyStore(private val context: Context) {
+internal class JourneyStore(private val context: Context, val userId: String = activeUserId(context)) {
     private val preferences = context.getSharedPreferences(PROFILES_PREFS, Context.MODE_PRIVATE)
-    private val key = "journey_state_v1"
+    private val key = if (userId == ORIGINAL_USER_ID) "journey_state_v1" else "journey_state_v1_$userId"
     fun load(now: Long = System.currentTimeMillis()): JourneyState {
         val raw = preferences.getString(key, null)
         if (raw == null) {
+            if (userId != ORIGINAL_USER_ID) return JourneyState()
             // Check legacy syntax before using its older tolerant reader.
             preferences.getString(SAVED_JOURNEYS_KEY, null)?.let { rawLegacy ->
                 val legacy = JSONArray(rawLegacy)
@@ -160,7 +163,8 @@ internal class JourneyStore(private val context: Context) {
             tickets = readArray(j.getJSONArray("tickets")) { t -> StoredTicket(
                 id = t.getString("id"), data = ticketFromJson(t.getJSONObject("data")),
                 createdAt = t.getLong("createdAt"), countdownEndsAt = t.getLong("countdownEndsAt"),
-                accentIndex = t.getInt("accentIndex"), cancelled = t.getBoolean("cancelled")) },
+                accentIndex = t.getInt("accentIndex"), cancelled = t.getBoolean("cancelled"),
+                ownerUserId = t.optString("ownerUserId", userId), ownerUsername = t.optString("ownerUsername", j.getJSONObject("profile").optString("username"))) },
             passengers = readArray(j.getJSONArray("passengers")) { p -> Passenger(
                 p.getString("id"), p.getString("name"), p.getString("mobile"),
                 p.optString("age"), p.optString("gender", "Not specified"), p.optString("meal", "No preference"),
@@ -176,9 +180,12 @@ internal class JourneyStore(private val context: Context) {
             showServices = j.getBoolean("showServices"),
             walletPaise = j.optLong("walletPaise", 0).also { require(it in 0..MAX_WALLET_PAISE) })
         val compatible = if (j.has("routes")) stored.copy(routes = readArray(j.getJSONArray("routes")) { route ->
-            SavedRoute(route.getString("id"), route.getString("pairId"), route.getString("origin"), route.getString("destination"), route.optString("via"))
+            SavedRoute(route.getString("id"), route.getString("pairId"), route.getString("origin"), route.getString("destination"), route.optString("via"), route.optString("distance").ifBlank {
+                recoverRouteDistance(route.getString("origin"), route.getString("destination"), route.optString("via"),
+                    stored.templates.map(::draftFromTemplate) + stored.tickets.map { it.data })
+            })
         }) else stored.copy(routes = routesFromTemplates(stored.templates))
-        if (!j.has("routes")) check(save(compatible)) { "Unable to save route migration" }
+        if ((0 until j.getJSONArray("tickets").length()).any { !j.getJSONArray("tickets").getJSONObject(it).has("ownerUserId") } || !j.has("routes") || (0 until j.getJSONArray("routes").length()).any { !j.getJSONArray("routes").getJSONObject(it).has("distance") }) check(save(compatible)) { "Unable to save route migration" }
         return compatible
     }
     fun save(state: JourneyState): Boolean {
@@ -187,7 +194,7 @@ internal class JourneyStore(private val context: Context) {
             put("tickets", writeArray(state.tickets) { t -> JSONObject().apply {
                 put("id", t.id); put("data", ticketJson(t.data)); put("createdAt", t.createdAt)
                 put("countdownEndsAt", t.countdownEndsAt); put("accentIndex", t.accentIndex)
-                put("cancelled", t.cancelled)
+                put("cancelled", t.cancelled); put("ownerUserId", t.ownerUserId); put("ownerUsername", t.ownerUsername)
             } })
             put("passengers", writeArray(state.passengers) { p -> JSONObject().apply {
                 put("id", p.id); put("name", p.name); put("mobile", p.mobile)
@@ -209,7 +216,7 @@ internal class JourneyStore(private val context: Context) {
             put("showServices", state.showServices)
             put("walletPaise", state.walletPaise)
             put("routes", writeArray(state.routes) { route -> JSONObject().apply {
-                put("id", route.id); put("pairId", route.pairId); put("origin", route.origin); put("destination", route.destination); put("via", route.via)
+                put("id", route.id); put("pairId", route.pairId); put("origin", route.origin); put("destination", route.destination); put("via", route.via); put("distance", route.distance)
             } })
         }
         return preferences.edit().putString(key, json.toString()).commit()

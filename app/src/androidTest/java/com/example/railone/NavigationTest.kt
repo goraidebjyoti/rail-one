@@ -33,7 +33,7 @@ class NavigationTest {
         first = StoredTicket(data = draft, createdAt = now, countdownEndsAt = now + 300000, accentIndex = 0)
         second = StoredTicket(data = draft.copy(origin = "DELHI", destination = "AGRA", journeyTicket = "X987654321"),
             createdAt = now + 1, countdownEndsAt = now + 300000, accentIndex = 2)
-        JourneyStore(context).save(JourneyState(tickets = listOf(first, second), profile = UserProfile(name = "Traveller", mobile = "9876543210")))
+        JourneyStore(context).save(JourneyState(tickets = listOf(first, second), profile = UserProfile(name = "Traveller", mobile = "9876543210", username = "traveller")))
         launchHome()
     }
     private fun launchHome() {
@@ -147,7 +147,7 @@ class NavigationTest {
         val store = JourneyStore(context)
         first = first.copy(countdownEndsAt = 1)
         second = second.copy(countdownEndsAt = 1)
-        store.save(JourneyState(tickets = listOf(first, second), profile = UserProfile(name = "Traveller", mobile = "9876543210")))
+        store.save(JourneyState(tickets = listOf(first, second), profile = UserProfile(name = "Traveller", mobile = "9876543210", username = "traveller")))
         launchHome()
         compose.onNodeWithText("My Bookings").performClick()
         val beforeBookings = System.currentTimeMillis()
@@ -344,7 +344,7 @@ class NavigationTest {
         scenario.close()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val expired = first.copy(data = first.data.copy(bookedOn = "09/05/2025 18:31", via = "PKU-SRC"))
-        JourneyStore(context).save(JourneyState(tickets = listOf(expired), profile = UserProfile("Traveller", "9876543210")))
+        JourneyStore(context).save(JourneyState(tickets = listOf(expired), profile = UserProfile("Traveller", "9876543210", username = "traveller")))
         launchHome()
         compose.onNodeWithText("My Bookings", substring = false).performClick()
         compose.onNodeWithText("Completed", substring = false).performClick()
@@ -356,6 +356,63 @@ class NavigationTest {
         compose.onNodeWithTag("share-invoice").assertIsDisplayed()
         compose.onNodeWithContentDescription("Ticket QR code").assertDoesNotExist()
         compose.onNodeWithText("Book Connecting Journey").assertDoesNotExist()
+    }
+
+    @Test fun manualStationEntrySuggestsSavedStationsAndFillsEditableViaAndDistance() {
+        scenario.close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val routes = emptyList<SavedRoute>().saveRoutePair(SavedRoute(origin = "DELHI", destination = "AGRA", via = "ABC-DEF", distance = "175"))
+        JourneyStore(context).save(JourneyState(routes = routes, profile = UserProfile("Traveller", "9876543210", username = "traveller")))
+        launchHome()
+        compose.onNodeWithContentDescription("New Ticket").performClick()
+        compose.onNode(hasSetTextAction() and hasText("From Station")).performScrollTo().performTextInput("del")
+        compose.onNodeWithText("DELHI", substring = false).performClick()
+        compose.onNode(hasSetTextAction() and hasText("To Station")).performTextInput("agr")
+        compose.onNodeWithText("AGRA", substring = false).performClick()
+        compose.onNode(hasSetTextAction() and hasText("Via", substring = false)).assertTextContains("ABC-DEF")
+        compose.onNode(hasSetTextAction() and hasText("Distance (km)")).assertTextContains("175")
+        compose.onNode(hasSetTextAction() and hasText("Via", substring = false)).performScrollTo().performTextReplacement("custom")
+        compose.onNode(hasSetTextAction() and hasText("Distance (km)")).performScrollTo().performTextReplacement("180")
+        compose.onNode(hasSetTextAction() and hasText("Via", substring = false)).assertTextContains("CUSTOM")
+        compose.onNode(hasSetTextAction() and hasText("Distance (km)")).assertTextContains("180")
+    }
+
+    @Test fun missingUsernameBlocksUnreservedBookingAndOpensProfileSetup() {
+        scenario.close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        JourneyStore(context).save(JourneyState(tickets = listOf(first), profile = UserProfile("Traveller", "9876543210")))
+        launchHome()
+        compose.onNodeWithContentDescription("New Ticket").performClick()
+        compose.onNodeWithText("Edit Your Details", substring = false).assertExists()
+        compose.onNode(hasSetTextAction() and hasText("Username")).assertExists()
+        compose.onNodeWithText("BOOK TICKET", substring = false).assertDoesNotExist()
+        org.junit.Assert.assertEquals(1, JourneyStore(context).load().tickets.size)
+    }
+    @Test fun addingUserAndSwitchingBackRequiresOriginalUsersPinAndRetainsTickets() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        AppLockStore(context, ORIGINAL_USER_ID).save(true, false, "123456")
+        compose.onNodeWithText("You", substring = false).performClick()
+        compose.onNodeWithTag("profile-content").performScrollToNode(hasText("Users", substring = false))
+        compose.onNodeWithText("Users", substring = false).performClick()
+        compose.onNodeWithText("Add User", substring = false).performClick()
+        compose.onNode(hasSetTextAction() and hasText("Full Name")).performScrollTo().performTextInput("Second User")
+        compose.onNode(hasSetTextAction() and hasText("Username")).performScrollTo().performTextInput("second")
+        compose.onNode(hasSetTextAction() and hasText("Mobile Number")).performScrollTo().performTextInput("9123456789")
+        compose.onNodeWithText("Create User", substring = false).performScrollTo().performClick()
+        compose.waitUntil(timeoutMillis = 8000) { JourneyStore(context).load().profile.username == "second" }
+        org.junit.Assert.assertTrue(JourneyStore(context).load().tickets.isEmpty())
+        compose.onNodeWithText("You", substring = false).performClick()
+        compose.onNodeWithTag("profile-content").performScrollToNode(hasText("Users", substring = false))
+        compose.onNodeWithText("Users", substring = false).performClick()
+        compose.onNodeWithText("Traveller · traveller", substring = false).performClick()
+        compose.waitUntil(timeoutMillis = 8000) { compose.onAllNodesWithTag("login-pin").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Different User?", substring = false).assertExists()
+        compose.onNodeWithTag("home-content").assertDoesNotExist()
+        compose.onNodeWithTag("login-pin").performTextInput("123456")
+        compose.onNodeWithTag("login-submit").performScrollTo().performClick()
+        compose.waitUntil(timeoutMillis = 10000) { compose.onAllNodesWithTag("home-content").fetchSemanticsNodes().isNotEmpty() }
+        org.junit.Assert.assertEquals(2, JourneyStore(context).load().tickets.size)
+        org.junit.Assert.assertEquals("traveller", JourneyStore(context).load().profile.username)
     }
 
 }

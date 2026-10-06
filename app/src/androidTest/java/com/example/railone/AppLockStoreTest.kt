@@ -15,6 +15,7 @@ class AppLockStoreTest {
     private lateinit var store: AppLockStore
     @Before fun reset() {
         context = ApplicationProvider.getApplicationContext()
+        context.getSharedPreferences(PROFILES_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences(APP_LOCK_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
         store = AppLockStore(context)
     }

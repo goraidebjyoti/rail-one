@@ -508,7 +508,7 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
     onUseTemplate: (SavedJourney) -> Unit, onDeleteTemplate: (SavedJourney) -> Unit,
     onPhoto: () -> Unit = {}, onRemovePhoto: () -> Unit = {}, onWalletAdd: () -> Unit = {}, onWalletRefresh: () -> Unit = {}, onAccount: () -> Unit = onProfile,
     loginEnabled: Boolean = false, biometricEnabled: Boolean = false, onLoginSettings: () -> Unit = {}, onBiometricToggle: () -> Unit = {}, onAddRoute: () -> Unit = {}, onUseRoute: (SavedRoute) -> Unit = {},
-    onEditRoute: (SavedRoute) -> Unit = {}, onDeleteRoute: (SavedRoute) -> Unit = {}) {
+    onEditRoute: (SavedRoute) -> Unit = {}, onDeleteRoute: (SavedRoute) -> Unit = {}, onSwitchUser: () -> Unit = {}) {
     var routesExpanded by rememberSaveable { mutableStateOf(false) }
     var templatesExpanded by rememberSaveable { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize().background(Color.White).testTag("profile-content"), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -625,6 +625,8 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
         }
         item {
             Spacer(Modifier.height(22.dp))
+            ProfileOptionCard("Users", "${state.profile.username.ifBlank { "Username not set" }} · switch or add a local user", Icons.Default.People, PaleBlue, onSwitchUser)
+            Spacer(Modifier.height(12.dp))
             ProfileOptionCard("App Login", if (loginEnabled) if (biometricEnabled) "Enabled · mPIN and device biometrics" else "Enabled · mPIN" else "Off · set a six-digit mPIN", Icons.Default.Lock, PaleBlue, onLoginSettings)
             Spacer(Modifier.height(12.dp))
             ProfileOptionCard("Saved Journey Templates", "${state.templates.size} saved · tap to ${if (templatesExpanded) "hide" else "open"}", Icons.Default.Bookmark, PaleViolet) { templatesExpanded = !templatesExpanded }

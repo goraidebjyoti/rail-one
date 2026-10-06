@@ -102,7 +102,7 @@ private fun drawJourneyInvoice(context: Context, canvas: Canvas, data: TicketDat
         text("Journey Ticket", 42f, 244f, 12f, true)
         text(data.journeyTicket, 553f, 244f, 12f, true, width = 240f, align = Paint.Align.RIGHT)
         text(data.origin, 42f, 275f, 12f, true, width = 205f)
-        text(data.distance, 297.5f, 277f, 10f, colour = Color.DKGRAY, width = 70f, align = Paint.Align.CENTER)
+        text("${normalDistance(data.distance)} km", 297.5f, 277f, 10f, colour = Color.DKGRAY, width = 70f, align = Paint.Align.CENTER)
         text(data.destination, 553f, 275f, 12f, true, width = 205f, align = Paint.Align.RIGHT)
         text("Via", 42f, 306f, 10f, true, Color.DKGRAY)
         text(data.via.ifBlank { "-" }, 42f, 323f, 11f, true, width = 340f)

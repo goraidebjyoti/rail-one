@@ -135,3 +135,15 @@ Added five instrumentation regressions covering direct/alternative routes, rever
 ## Completed details, PDF sharing and automatic biometrics
 
 Parsed the uploaded one-page A4 invoice and inspected its rendered layout. Added native completed-ticket details and A4 PDF generation with invoice-specific FileProvider read grants and the system share chooser. Added five Android regressions for completed UI, saved-field formatting/filename safety, renderable A4 PDF and red travel-invalid notice, share URI/read permissions and provider path confinement. Total: 52 instrumentation tests included, not executed locally. Auto biometric login is launched once after the splash stages and retains its attempted state across rotation; cancelled or unavailable authentication falls back to mPIN. Device biometric success/cancellation, Android share UI and generated-PDF rendering require device/CI validation. No Gradle/Android SDK is available here; static parsing cannot establish a passing build.
+
+## Route distance and station autocomplete
+
+Added route distance to persistence, both directions, labels and route editing. Old route records recover distance from matching stored templates/tickets in either direction, or remain present with a missing-distance prompt. Uppercase normalization applies when saving and typing station/Via fields. Autocomplete uses names from saved routes only; exact station pairs autofill when unique and expose an explicit path choice when ambiguous. Added four model/storage tests and one Compose UI test for these behaviors and manual edits. Total: 57 instrumentation tests included, not run locally. Kotlin syntax, JSON ticket symmetry, Android XML, workflow configuration and ZIP checks pass. Gradle compilation, instrumentation execution and keyboard/dropdown behavior on a device are still unverified in this environment.
+
+## Multi-user setup and booking gates
+
+Added per-user snapshots with original snapshot-key compatibility, a local user registry, unique usernames, per-user mPIN/biometric preference keys and user selection from You and login. Authentication callbacks and asynchronous mPIN results check the selected user before unlocking. Tickets store owner ID and username while existing name/mobile snapshots stay unchanged. Profile completeness is enforced before opening booking and immediately before ticket save. Added five model/storage/authentication tests and two UI tests for profile gating, user creation/switching and authentication on switching back. Total: 64 Android tests included, not executed here. Static Kotlin, XML and workflow checks pass. Device/CI testing of login switching and complete booking flow remains required.
+
+## Independent Via edits and removal
+
+Added a Remove Via action and an explicit choice between editing one direction and both directions. Added three route regressions for paired Via removal with distance retained, independent reverse edits and later synchronization, persistence and collision protection. Total: 67 instrumentation tests included, not run locally. Kotlin/XML/workflow static checks pass; Android build and device UI remain unverified.

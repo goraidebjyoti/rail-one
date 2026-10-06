@@ -162,3 +162,17 @@ See [UPDATE_DATA.md](UPDATE_DATA.md) for independent route pairs, automatic reve
 Completed bookings open an expired-ticket summary with a receipt icon. The icon generates an A4 PDF using that saved ticket's details and opens the Android share sheet. Filename: `<ticket-ID>_journey_invoice.pdf`. It includes the reference-only notice and cannot be used as a travel ticket. Shared files are restricted to the invoice cache directory.
 
 With App Login and Biometrics enabled and an enrolled device biometric available, the system authentication prompt opens immediately after the splash animation. Successful authentication opens Home. Cancelling or unavailable biometrics leaves the mPIN login available. The prompt uses the biometric types supported by your phone; the app cannot force a sensor your device does not support.
+
+Saved routes now include distance in km in both directions. Station and Via text saves in uppercase. Station fields suggest names from saved routes and fill Via/distance for an exact pair with one path. Where multiple paths exist, use **Choose Saved Path**; Via and distance stay editable after selection.
+
+## Multiple local users and booking identity
+
+Unreserved booking requires the active user's name, username and valid mobile number. If any is missing, opening booking directs you to **You → Edit Details**. Booking checks again before saving. Tickets freeze the booked name/mobile and record user ID/username, so later profile edits do not alter older tickets or invoices.
+
+Use **You → Users** to add or switch local users, or **Different User?** on the mPIN login screen. Each user has separate tickets, passengers, route pairs, templates, wallet and login settings. Usernames must be unique on this device, ignoring case. Configure optional mPIN/biometrics for each user in **App Login**. Switching to a protected user requires that user's authentication; unlocked access is not carried across users. Device biometrics use the phone's enrolled identities. These are local profiles, with no remote account registration or server authentication.
+
+The original user's existing preferences, data and mPIN keys are retained. New users start with empty booking collections. The last selected user is remembered after restarting.
+
+## Editing Via in either saved direction
+
+In **You → Saved Routes**, edit the forward or reverse entry. Change Via, or tap **Remove Via** to make it direct. Keep **Update reverse route too** checked to update both directions with reversed stop order; uncheck it to change only the selected direction. Distance remains unless you edit it. Existing tickets keep their original booked route. If the new path already exists separately, saving shows an inline message rather than removing that other path.

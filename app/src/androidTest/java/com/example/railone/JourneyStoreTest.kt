@@ -238,30 +238,30 @@ class JourneyStoreTest {
         assertEquals(state, store.load(testNow))
     }
     @Test fun savedRoutesReverseViaAndAllowDirectAndAlternativePaths() {
-        val first = SavedRoute(origin = " kharagpur ", destination = "howrah", via = "pku-src")
+        val first = SavedRoute(origin = " kharagpur ", destination = "howrah", via = "pku-src", distance = "116")
         val routes = emptyList<SavedRoute>().saveRoutePair(first)
-            .saveRoutePair(SavedRoute(origin = "KHARAGPUR", destination = "HOWRAH"))
-            .saveRoutePair(SavedRoute(origin = "KHARAGPUR", destination = "HOWRAH", via = "ABC-DEF"))
+            .saveRoutePair(SavedRoute(origin = "KHARAGPUR", destination = "HOWRAH", distance = "116"))
+            .saveRoutePair(SavedRoute(origin = "KHARAGPUR", destination = "HOWRAH", via = "ABC-DEF", distance = "116"))
         assertEquals(6, routes.size)
         assertTrue(routes.any { it.origin == "HOWRAH" && it.destination == "KHARAGPUR" && it.via == "SRC-PKU" })
         assertEquals(2, routes.count { it.via.isBlank() })
         assertEquals(6, routes.saveRoutePair(first.copy(id = "another", pairId = "another")).size)
     }
     @Test fun editingRouteUpdatesReverseWhileRetainingOtherVariants() {
-        val first = SavedRoute(origin = "A", destination = "B", via = "X-Y")
+        val first = SavedRoute(origin = "A", destination = "B", via = "X-Y", distance = "116")
         val routes = emptyList<SavedRoute>().saveRoutePair(first)
-            .saveRoutePair(SavedRoute(origin = "A", destination = "B", via = "Z"))
+            .saveRoutePair(SavedRoute(origin = "A", destination = "B", via = "Z", distance = "116"))
         val edited = routes.saveRoutePair(first.copy(via = "P-Q"))
         assertEquals(4, edited.size)
         assertTrue(edited.any { it.pairId == first.pairId && it.via == "Q-P" })
         assertFalse(edited.any { it.via == "X-Y" || it.via == "Y-X" })
         assertEquals(2, edited.filterNot { it.pairId == first.pairId }.size)
     }
-    @Test fun applyingRouteOnlyChangesStationsAndVia() {
+    @Test fun applyingRouteOnlyChangesStationsViaAndDistance() {
         val draft = validDraft()
-        val route = SavedRoute(origin = "DELHI", destination = "AGRA", via = "ABC")
+        val route = SavedRoute(origin = "DELHI", destination = "AGRA", via = "ABC", distance = "116")
         val applied = draft.withRoute(route)
-        assertEquals(draft, applied.copy(origin = draft.origin, destination = draft.destination, via = draft.via))
+        assertEquals(draft, applied.copy(origin = draft.origin, destination = draft.destination, via = draft.via, distance = draft.distance))
         assertEquals("DELHI", applied.origin)
         assertEquals("ABC", applied.via)
     }
@@ -280,12 +280,95 @@ class JourneyStoreTest {
         assertEquals(migrated, JourneyStore(context).load(testNow))
     }
     @Test fun routePairsRoundTripAndRejectMalformedVia() {
-        val routes = emptyList<SavedRoute>().saveRoutePair(SavedRoute(origin = "A", destination = "B", via = "X-Y"))
+        val routes = emptyList<SavedRoute>().saveRoutePair(SavedRoute(origin = "A", destination = "B", via = "X-Y", distance = "116"))
         val original = JourneyState(routes = routes)
         assertTrue(store.save(original))
         assertEquals(original, JourneyStore(context).load(testNow))
-        assertNotNull(routeError(SavedRoute(origin = "A", destination = "B", via = "X--Y")))
-        assertNotNull(routeError(SavedRoute(origin = " a ", destination = "A")))
+        assertNotNull(routeError(SavedRoute(origin = "A", destination = "B", via = "X--Y", distance = "116")))
+        assertNotNull(routeError(SavedRoute(origin = " a ", destination = "A", distance = "116")))
+    }
+
+    @Test fun routeDistanceAndUppercaseAreSavedInBothDirections() {
+        val routes = emptyList<SavedRoute>().saveRoutePair(SavedRoute(origin = "kharagpur", destination = "howrah", via = "pku-src", distance = "116 km"))
+        assertEquals(listOf("116", "116"), routes.map { it.distance })
+        assertEquals("KHARAGPUR", routes.first().origin)
+        assertEquals("PKU-SRC", routes.first().via)
+        assertEquals("SRC-PKU", routes.last().via)
+        assertTrue(store.save(JourneyState(routes = routes)))
+        assertEquals(routes, store.load(testNow).routes)
+        assertNotNull(routeError(routes.first().copy(distance = "0")))
+        assertNotNull(routeError(routes.first().copy(distance = "NaN")))
+    }
+    @Test fun stationSuggestionsAreUniqueCaseInsensitiveAndIncludeBothStationRoles() {
+        val routes = emptyList<SavedRoute>().saveRoutePair(SavedRoute(origin = "KHARAGPUR", destination = "HOWRAH", distance = "116"))
+            .saveRoutePair(SavedRoute(origin = "KHARAGPUR", destination = "HOWRAH", via = "PKU-SRC", distance = "116"))
+        assertEquals(listOf("KHARAGPUR"), stationSuggestions(routes, " khar "))
+        assertEquals(listOf("HOWRAH"), stationSuggestions(routes, "how"))
+        assertTrue(stationSuggestions(routes, "HOWRAH").isEmpty())
+        assertTrue(stationSuggestions(routes, "DELHI").isEmpty())
+    }
+    @Test fun stationPairAutofillsSinglePathAndNeverChoosesAmbiguousVia() {
+        val routes = emptyList<SavedRoute>().saveRoutePair(SavedRoute(origin = "KHARAGPUR", destination = "HOWRAH", via = "PKU-SRC", distance = "116"))
+        val draft = validDraft().copy(origin = "howrah", destination = "kharagpur", distance = "", via = "")
+        val filled = draft.fillUniqueSavedRoute(routes)
+        assertEquals("SRC-PKU", filled.via)
+        assertEquals("116", filled.distance)
+        assertEquals(draft.passengerName, filled.passengerName)
+        val variants = routes.saveRoutePair(SavedRoute(origin = "KHARAGPUR", destination = "HOWRAH", via = "OTHER", distance = "125"))
+        assertEquals(draft, draft.fillUniqueSavedRoute(variants))
+        val selected = draft.withRoute(variants.last())
+        assertEquals("OTHER", selected.via)
+        assertEquals("125", selected.distance)
+        assertEquals(draft, draft.copy(destination = "UNKNOWN").fillUniqueSavedRoute(routes).copy(destination = draft.destination))
+    }
+    @Test fun preDistanceRoutesRecoverBothDirectionsFromOldTemplateAndRetainUnknownRoutes() {
+        val route = SavedRoute(origin = "HOWRAH", destination = "KHARAGPUR", via = "SRC-PKU", distance = "116")
+        val routes = emptyList<SavedRoute>().saveRoutePair(route) + SavedRoute(origin = "A", destination = "B")
+        val original = JourneyState(routes = routes, tickets = listOf(ticket()),
+            templates = listOf(templateFromDraft(validDraft().copy(via = "SRC-PKU"))),
+            passengers = listOf(Passenger(name = "Saved", mobile = "9876543210")), walletPaise = 855)
+        assertTrue(store.save(original))
+        val prefs = context.getSharedPreferences(PROFILES_PREFS, Context.MODE_PRIVATE)
+        val old = JSONObject(prefs.getString("journey_state_v1", null)!!)
+        val array = old.getJSONArray("routes")
+        for (i in 0 until array.length()) array.getJSONObject(i).remove("distance")
+        assertTrue(prefs.edit().putString("journey_state_v1", old.toString()).commit())
+        val migrated = store.load(testNow)
+        assertEquals(listOf("116", "116", ""), migrated.routes.map { it.distance })
+        assertEquals(original.copy(routes = migrated.routes), migrated)
+        assertEquals(migrated, JourneyStore(context).load(testNow))
+    }
+
+    @Test fun removingViaCanUpdateBothDirectionsWithoutChangingDistance() {
+        val route = SavedRoute(origin = "A", destination = "B", via = "X-Y", distance = "116")
+        val original = emptyList<SavedRoute>().saveRoutePair(route)
+        val direct = original.editRoute(route.copy(via = ""), updateReverse = true)
+        assertEquals(2, direct.size)
+        assertTrue(direct.all { it.via.isBlank() && it.distance == "116" })
+        assertEquals(original.map { it.id }.toSet(), direct.map { it.id }.toSet())
+    }
+    @Test fun reverseDirectionCanEditOrRemoveViaIndependentlyAndLaterSynchronise() {
+        val original = emptyList<SavedRoute>().saveRoutePair(SavedRoute(origin = "A", destination = "B", via = "X-Y", distance = "116"))
+        val reverse = original.last()
+        val edited = original.editRoute(reverse.copy(via = "q-p"), updateReverse = false)
+        assertEquals("X-Y", edited.first().via)
+        assertEquals("Q-P", edited.last().via)
+        val removed = edited.editRoute(edited.last().copy(via = ""), updateReverse = false)
+        assertEquals("X-Y", removed.first().via)
+        assertEquals("", removed.last().via)
+        val synced = removed.editRoute(removed.last().copy(via = "SRC-PKU"), updateReverse = true)
+        assertEquals("PKU-SRC", synced.single { it.origin == "A" }.via)
+        assertEquals("SRC-PKU", synced.single { it.origin == "B" }.via)
+        assertTrue(store.save(JourneyState(routes = synced)))
+        assertEquals(synced, store.load(testNow).routes)
+    }
+    @Test fun independentRouteEditsRejectConflictsWithoutRemovingOtherPaths() {
+        val first = SavedRoute(origin = "A", destination = "B", via = "X", distance = "10")
+        val routes = emptyList<SavedRoute>().saveRoutePair(first)
+            .saveRoutePair(SavedRoute(origin = "A", destination = "B", distance = "10"))
+        assertTrue(runCatching { routes.editRoute(first.copy(via = ""), updateReverse = false) }.isFailure)
+        assertTrue(runCatching { routes.editRoute(first.copy(via = ""), updateReverse = true) }.isFailure)
+        assertEquals(4, routes.size)
     }
 
 }

@@ -44,7 +44,7 @@ private val Ice = Color(0xFFE2F8FD)
 private val Lavender = Color(0xFFF0ECFF)
 
 @Composable
-internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean = false, onLoginSettings: () -> Unit = {}, onBiometricToggle: () -> Unit = {}) {
+internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean = false, onLoginSettings: () -> Unit = {}, onBiometricToggle: () -> Unit = {}, onSwitchUser: () -> Unit = {}) {
     val context = LocalContext.current
     val store = remember { JourneyStore(context) }
     val loaded = remember { runCatching { store.load() } }
@@ -93,6 +93,9 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
     fun notify(text: String) { scope.launch { snackbar.showSnackbar(text) } }
     fun persist(updated: JourneyState): Boolean {
         if (loaded.isFailure) { message = "Stored data could not be read. Nothing has been overwritten. Restore a device backup or contact support with the source project."; return false }
+        if (updated.profile.username != state.profile.username && runCatching {
+            UserAccounts(context).usernameTaken(updated.profile.username, store.userId)
+        }.getOrDefault(true)) { notify("This username is already in use or user data could not be read."); return false }
         val retained = updated
         if (!runCatching { store.save(retained) }.getOrDefault(false)) {
             notify("Could not save changes. Please retry."); return false
@@ -120,6 +123,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
     }
     fun setDraft(updated: TicketData) { draftRaw = ticketJson(updated).toString(); error = null }
     fun edit(data: TicketData, id: String? = null) {
+        bookingProfileError(state.profile)?.let { notify(it); tab = "You"; page = "Main"; profileEditing = true; return }
         editorReturnTicketId = if (page == "Ticket") selectedId else null
         if (page != "Ticket") returnTab = tab
         val contactDraft = data.copy(passengerName = state.profile.name, mobile = state.profile.mobile)
@@ -184,9 +188,9 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                             data = draft, savedJourneys = state.templates,
                             setPassengerName = { setDraft(draft.copy(passengerName = it)) },
                             setMobile = { setDraft(draft.copy(mobile = it.filter(Char::isDigit).take(15))) },
-                            setOrigin = { setDraft(draft.copy(origin = it.uppercase(java.util.Locale.ROOT))) },
+                            setOrigin = { setDraft(draft.copy(origin = it.uppercase(java.util.Locale.ROOT)).fillUniqueSavedRoute(state.routes)) },
                             setDistance = { setDraft(draft.copy(distance = it)) },
-                            setDestination = { setDraft(draft.copy(destination = it.uppercase(java.util.Locale.ROOT))) },
+                            setDestination = { setDraft(draft.copy(destination = it.uppercase(java.util.Locale.ROOT)).fillUniqueSavedRoute(state.routes)) },
                             setVia = { setDraft(draft.copy(via = it.uppercase(java.util.Locale.ROOT))) },
                             setAdults = { setDraft(draft.copy(adults = it.filter(Char::isDigit))) },
                             setChildren = { setDraft(draft.copy(children = it.filter(Char::isDigit))) },
@@ -209,8 +213,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                             } },
                             onSaveJourney = {
                                 val bookingDraft = draft.copy(passengerName = state.profile.name.trim(), mobile = state.profile.mobile.trim())
-                                val problem = if (bookingDraft.passengerName.isBlank() || bookingDraft.mobile.isBlank())
-                                    "Set your name and mobile number in You → Edit Details before booking." else draftError(bookingDraft)
+                                val problem = bookingProfileError(state.profile) ?: draftError(bookingDraft)
                                 if (problem != null) error = problem else {
                                     val template = templateFromDraft(bookingDraft, templateId ?: UUID.randomUUID().toString())
                                     if (persist(state.copy(templates = state.templates.filterNot { it.id == template.id } + template))) {
@@ -221,8 +224,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                             onDeleteJourney = { confirm = "template" to it },
                             onGenerateTicket = {
                                 val bookingDraft = draft.copy(passengerName = state.profile.name.trim(), mobile = state.profile.mobile.trim())
-                                val problem = if (bookingDraft.passengerName.isBlank() || bookingDraft.mobile.isBlank())
-                                    "Set your name and mobile number in You → Edit Details before booking." else draftError(bookingDraft)
+                                val problem = bookingProfileError(state.profile) ?: draftError(bookingDraft)
                                 if (problem != null) error = problem else {
                                     var reference = generateJourneyTicket()
                                     while (state.tickets.any { it.data.journeyTicket == reference }) reference = generateJourneyTicket()
@@ -232,7 +234,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                                         bookingDateTime = toTicketDisplayDateTime(draft.bookedOn), journeyTicket = reference)
                                     val ticket = StoredTicket(data = frozen, createdAt = time,
                                         countdownEndsAt = time + TICKET_COUNTDOWN_SECONDS * 1000L,
-                                        accentIndex = ACCENT_COLORS.indices.random())
+                                        accentIndex = ACCENT_COLORS.indices.random(), ownerUserId = store.userId, ownerUsername = state.profile.username.trim())
                                     if (persist(state.copy(tickets = state.tickets + ticket))) {
                                         selectedId = ticket.id; templateId = null; editorReturnTicketId = null; page = "Ticket"; returnTab = "My Bookings"
                                         setDraft(freshDraft())
@@ -243,7 +245,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                             templateSaveLabel = if (templateId == null) "Save As Journey Template" else "Update Journey Template",
                             error = error, routes = state.routes,
                             onUseRoute = { setDraft(draft.withRoute(it)) },
-                            onSaveRoute = { routeEditing = SavedRoute(origin = draft.origin, destination = draft.destination, via = draft.via) },
+                            onSaveRoute = { routeEditing = SavedRoute(origin = draft.origin, destination = draft.destination, via = draft.via, distance = draft.distance) },
                         )
                         "Ticket" -> if (selected != null && selected.status(now) == "Completed") CompletedTicketPage(selected.data,
                             onBack = { back() }, onInvoice = {
@@ -292,7 +294,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                                 onAddPassenger = { passengerEditingId = UUID.randomUUID().toString() },
                                 onEditPassenger = { passengerEditingId = it.id },
                                 onDeletePassenger = { confirm = "passenger" to it.id },
-                                onAddRoute = { routeEditing = SavedRoute() },
+                                onSwitchUser = onSwitchUser, onAddRoute = { routeEditing = SavedRoute() },
                                 onUseRoute = { edit(freshDraft().withRoute(it)) },
                                 onEditRoute = { routeEditing = it }, onDeleteRoute = { confirm = "route" to it.pairId },
                                 onNewTemplate = { edit(freshDraft()) },
@@ -344,9 +346,14 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
             onEdit = { accountOpen = false; profileEditing = true },
             onToggle = { persist(state.copy(profile = state.profile.copy(divyangjan = it))) },
             onDelete = { confirm = "profile" to "profile" })
-        routeEditing?.let { route -> SavedRouteSheet(route, onDismiss = { routeEditing = null }, onSave = {
-            if (persist(state.copy(routes = state.routes.saveRoutePair(it)))) { routeEditing = null; notify("Route and reverse saved") }
-        }) }
+        routeEditing?.let { route -> SavedRouteSheet(route, isEditing = state.routes.any { it.id == route.id },
+            onDismiss = { routeEditing = null }, onSave = { edited, updateReverse ->
+                val result = runCatching { state.routes.editRoute(edited, updateReverse) }
+                if (result.isFailure) result.exceptionOrNull()?.message ?: "Could not save the route."
+                else if (persist(state.copy(routes = result.getOrThrow()))) {
+                    routeEditing = null; notify(if (updateReverse) "Both directions saved" else "Selected direction saved"); null
+                } else "Could not save the route. Please retry."
+            }) }
         passengerEditing?.let { passenger -> PassengerSheet(passenger, isNew = state.passengers.none { it.id == passenger.id }, onDismiss = { passengerEditingId = null }, onSave = {
             if (persist(state.copy(passengers = state.passengers.filterNot { p -> p.id == it.id } + it))) passengerEditingId = null
         }) }

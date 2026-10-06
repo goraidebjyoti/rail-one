@@ -376,8 +376,24 @@ internal fun InputScreen(
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Field("From Station", data.origin, setOrigin, Modifier.weight(1f))
-                    Field("To Station", data.destination, setDestination, Modifier.weight(1f))
+                    StationSuggestionField("From Station", data.origin, routes, setOrigin, Modifier.weight(1f))
+                    StationSuggestionField("To Station", data.destination, routes, setDestination, Modifier.weight(1f))
+                }
+                val matchedPaths = matchingRoutes(routes, data.origin, data.destination)
+                if (matchedPaths.size == 1 && matchedPaths.first().distance.isBlank()) {
+                    Text("This older saved route has no distance. Enter it below and save the route to add it.", fontSize = 12.sp)
+                }
+                if (matchedPaths.size > 1) {
+                    Text("Multiple saved paths. Choose Via and distance:", fontSize = 12.sp)
+                    var pathsOpen by remember { mutableStateOf(false) }
+                    Box {
+                        OutlinedButton(onClick = { pathsOpen = true }) { Text("Choose Saved Path") }
+                        DropdownMenu(expanded = pathsOpen, onDismissRequest = { pathsOpen = false }) {
+                            matchedPaths.forEach { route -> DropdownMenuItem(text = { Text(route.label) }, onClick = {
+                                onUseRoute(route); pathsOpen = false
+                            }) }
+                        }
+                    }
                 }
                 Field("Distance (km)", data.distance, setDistance, Modifier.fillMaxWidth(), KeyboardType.Decimal)
                 Text(
@@ -938,7 +954,7 @@ internal fun TicketBody(data: TicketData, accent: Color) {
 
             TwoColumnField("Source", data.origin, "Destination", data.destination, boldValues = true)
             Spacer(Modifier.height(12.dp))
-            TwoColumnField("Distance", data.distance, "Passenger", "${data.adults} Adult, ${data.children} Child", boldValues = true)
+            TwoColumnField("Distance", "${normalDistance(data.distance)} km", "Passenger", "${data.adults} Adult, ${data.children} Child", boldValues = true)
             Spacer(Modifier.height(12.dp))
             TwoColumnField("Ticket Type", data.ticketType, "Train Types", data.trainType, boldValues = true)
             Spacer(Modifier.height(12.dp))

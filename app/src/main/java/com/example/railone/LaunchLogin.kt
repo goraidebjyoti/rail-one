@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -60,8 +61,12 @@ private val LoginInk = Color(0xFF0C2065)
 internal fun LaunchGate(session: LoginSession) {
     val context = LocalContext.current
     val activity = context as FragmentActivity
-    val store = remember { AppLockStore(context) }
-    var config by remember { mutableStateOf(store.config()) }
+    val accounts = remember { UserAccounts(context) }
+    var userId by rememberSaveable { mutableStateOf(activeUserId(context)) }
+    var usersOpen by remember { mutableStateOf(false) }
+    val currentUserId = userId
+    val store = remember(userId) { AppLockStore(context, userId) }
+    var config by remember(userId) { mutableStateOf(store.config()) }
     var settingsOpen by remember { mutableStateOf(false) }
     var recovery by remember { mutableStateOf(false) }
     var pin by remember { mutableStateOf("") }
@@ -73,13 +78,13 @@ internal fun LaunchGate(session: LoginSession) {
     val biometrics = remember { BiometricManager.from(context) }
     val available = biometrics.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS
     // Recreate the callback with the Activity after rotation, as required by BiometricPrompt.
-    val biometricPrompt = remember(activity) {
+    val biometricPrompt = remember(activity, userId) {
         BiometricPrompt(activity, ContextCompat.getMainExecutor(context), object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                if (locked && store.config().biometric) { session.unlocked = true; pin = ""; error = "" }
+                if (activeUserId(context) == currentUserId && locked && store.config().biometric) { session.unlocked = true; pin = ""; error = "" }
             }
-            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) { error = errString.toString() }
-            override fun onAuthenticationFailed() { error = "Biometric not recognised. Try again or use your mPIN." }
+            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) { if (activeUserId(context) == currentUserId) error = errString.toString() }
+            override fun onAuthenticationFailed() { if (activeUserId(context) == currentUserId) error = "Biometric not recognised. Try again or use your mPIN." }
         })
     }
     val recoveryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -95,7 +100,7 @@ internal fun LaunchGate(session: LoginSession) {
     }
     // One automatic attempt per launch session, after both splash stages finish.
     // Retained in the ViewModel so rotation does not reopen a cancelled prompt.
-    LaunchedEffect(session.introDone, currentLocked, config.biometric, available) {
+    LaunchedEffect(userId, session.introDone, currentLocked, config.biometric, available) {
         if (session.introDone && currentLocked && config.biometric && available && !session.biometricAttempted) {
             session.biometricAttempted = true
             biometricLogin()
@@ -104,18 +109,18 @@ internal fun LaunchGate(session: LoginSession) {
     if (!session.introDone) BrandLaunch { session.introDone = true }
     else if (currentLocked) {
         BackHandler { activity.finish() }
-        val name = remember { runCatching { JourneyStore(context).load().profile.name }.getOrDefault("") }
+        val name = remember(userId) { runCatching { JourneyStore(context, userId).load().profile.name }.getOrDefault("") }
         LoginPage(name, pin, { pin = it; error = "" }, error, busy, config.biometric && available,
             onLogin = {
                 if (!busy) scope.launch {
                     busy = true
                     try {
                         val result = withContext(Dispatchers.IO) { store.verify(pin) }
-                        if (result.accepted) { session.unlocked = true; pin = ""; error = "" } else error = result.error
+                        if (activeUserId(context) == currentUserId) { if (result.accepted) { session.unlocked = true; pin = ""; error = "" } else error = result.error }
                     } catch (_: Exception) { error = "Could not verify mPIN. Please retry." }
                     finally { busy = false }
                 }
-            }, onBiometric = { biometricLogin() }, onReset = {
+            }, onDifferentUser = { usersOpen = true }, onBiometric = { biometricLogin() }, onReset = {
                 val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
                 if (!keyguard.isDeviceSecure) error = "Set a device screen lock to use mPIN recovery."
                 else {
@@ -124,14 +129,24 @@ internal fun LaunchGate(session: LoginSession) {
                     if (intent != null) runCatching { recoveryLauncher.launch(intent) }.onFailure { error = "Device verification is unavailable." }
                 }
             })
-    } else RailOneApp(config.enabled, config.biometric, onLoginSettings = { settingsOpen = true }, onBiometricToggle = {
+    } else key(userId) { RailOneApp(config.enabled, config.biometric, onSwitchUser = { usersOpen = true }, onLoginSettings = { settingsOpen = true }, onBiometricToggle = {
         if (!config.enabled || (!config.biometric && !available)) settingsOpen = true
         else if (store.save(config.enabled, !config.biometric)) config = store.config()
+    }) }
+    if (usersOpen) UserPickerSheet(accounts, onDismiss = { usersOpen = false }, onSelect = { selected ->
+        if (accounts.select(selected)) {
+            biometricPrompt.cancelAuthentication()
+            session.unlocked = false; session.biometricAttempted = false
+            pin = ""; error = ""; recovery = false; settingsOpen = false
+            userId = selected; usersOpen = false
+        } else error = "Could not switch user. Please retry."
     })
     if (settingsOpen || recovery) LoginSettingsSheet(store, config, available, recovery,
         onDismiss = { settingsOpen = false; recovery = false }, onSaved = {
-            config = store.config(); settingsOpen = false
-            session.unlocked = true; pin = ""; recovery = false
+            if (activeUserId(context) == currentUserId) {
+                config = store.config(); settingsOpen = false
+                session.unlocked = true; pin = ""; recovery = false
+            }
         })
 }
 
@@ -158,7 +173,7 @@ private fun BrandLaunch(onFinished: () -> Unit) {
 
 @Composable
 private fun LoginPage(name: String, pin: String, onPin: (String) -> Unit, error: String, busy: Boolean,
-    biometricAvailable: Boolean, onLogin: () -> Unit, onBiometric: () -> Unit, onReset: () -> Unit) {
+    biometricAvailable: Boolean, onLogin: () -> Unit, onBiometric: () -> Unit, onReset: () -> Unit, onDifferentUser: () -> Unit) {
     val activity = LocalContext.current as Activity
     SideEffect {
         val bars = androidx.core.view.WindowCompat.getInsetsController(activity.window, activity.window.decorView)
@@ -211,7 +226,7 @@ private fun LoginPage(name: String, pin: String, onPin: (String) -> Unit, error:
                 modifier = Modifier.width(108.dp).height(40.dp).testTag("login-submit")) { Text("Login", color = LoginBlue, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
         }
         Spacer(Modifier.height(44.dp))
-        TextButton(onClick = { /* This app has one local profile. */ }) { Text("Different User?", color = LoginInk, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+        TextButton(onClick = onDifferentUser) { Text("Different User?", color = LoginInk, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
     }
 }
 
