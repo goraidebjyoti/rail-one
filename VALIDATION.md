@@ -163,3 +163,7 @@ Added exact decimal adult multipliers (1–4), ordinary-only return doubling and
 ## October 10 controls and station catalog
 
 Added six regressions for station persistence/unique extraction, name/code lookup and code exclusion from ticket JSON, combined passenger limits, Ordinary-only Return and repeated/manual fare calculation, reverse Via matching across multiple routes, and booking code/counter interaction. Existing login tests now verify automatic submission without clicking Login. Fare UI tests target the new Mail/Express pill, and template navigation tests scroll within Others. Total 82 instrumentation tests, not executed locally. Static Kotlin syntax (24 files), XML, workflow, ticket field symmetry and explicit Material icon imports pass. Android SDK/Gradle are unavailable locally. No on-device speed or pixel-equivalence claim is made.
+
+## Header and control alignment
+
+Reserved full 48 dp touch targets for the route swap and library back buttons, centered the swap against the station outlines, and added explicit back-button/title spacing with wrapping for long titles. Lowered the booking filter contents by 6 dp while retaining navigation-bar insets and the original bar height. Removed filter ripples and ignored taps on the active filter. Static Kotlin, XML, serialization and workflow checks pass; the existing 82 Android tests are included but were not executed locally. Android compilation and on-device visual verification remain unverified because the Android SDK/Gradle/emulator are unavailable here.

@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -400,12 +401,14 @@ private fun BookingCard(ticket: StoredTicket, now: Long, onView: (StoredTicket) 
 internal fun ReferenceBookingFilters(tickets: List<StoredTicket>, now: Long, filter: String, onFilter: (String) -> Unit) {
     Row(Modifier.fillMaxWidth().border(2.dp, Color(0xFFD0D2D3), RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
         .background(Color(0xFFE3F5FD), RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)).navigationBarsPadding()
-        .padding(horizontal = 6.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        .padding(start = 6.dp, end = 6.dp, top = 20.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf("Upcoming", "Completed", "Cancelled", "All").forEach { label ->
             val selected = filter == label
             Column(Modifier.weight(1f).height(52.dp).background(if (selected) Color(0xFFF8FBFC) else Color(0xFFDFF2FD), RoundedCornerShape(9.dp))
                 .border(if (selected) 1.dp else 0.dp, if (selected) Color.White else Color.Transparent, RoundedCornerShape(9.dp))
-                .clickable { onFilter(label) }.semantics { contentDescription = "$label, ${tickets.count { label == "All" || it.status(now) == label }} tickets" },
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                    if (!selected) onFilter(label)
+                }.semantics { contentDescription = "$label, ${tickets.count { label == "All" || it.status(now) == label }} tickets" },
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Picture(if (selected) when (label) {
                     "Completed" -> R.drawable.booking_filter_completed
@@ -725,8 +728,11 @@ private fun ProfileLibraryPage(section: String, state: JourneyState, onBack: () 
     var withViaOnly by rememberSaveable(section) { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().background(Color.White)) {
         Row(Modifier.fillMaxWidth().background(Blue).statusBarsPadding().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack, modifier = Modifier.size(40.dp).border(1.dp, Color.White, CircleShape)) { Icon(Icons.Default.ArrowBack, "Back", tint = Color.White) }
-            Text(section, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+            IconButton(onClick = onBack, modifier = Modifier.size(48.dp).border(1.dp, Color.White, CircleShape)) { Icon(Icons.Default.ArrowBack, "Back", tint = Color.White) }
+            Spacer(Modifier.width(16.dp))
+            Text(section, modifier = Modifier.weight(1f), color = Color.White, fontSize = 20.sp,
+                lineHeight = 24.sp, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                fontWeight = FontWeight.SemiBold)
         }
         if (section == "Others") {
             LazyColumn(Modifier.fillMaxSize().testTag("others-content"), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 20.dp)) {

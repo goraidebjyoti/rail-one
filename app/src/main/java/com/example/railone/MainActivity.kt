@@ -386,10 +386,14 @@ internal fun InputScreen(
                         routes.forEach { route -> DropdownMenuItem(text = { Text(route.label) }, onClick = { onUseRoute(route); routesOpen = false }) }
                     }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp), verticalAlignment = Alignment.CenterVertically) {
                     StationSuggestionField("From Station", data.origin, routes, setOrigin, Modifier.weight(1f), stations)
-                    IconButton(onClick = onSwapRoute, enabled = data.origin.isNotBlank() && data.destination.isNotBlank(),
-                        modifier = Modifier.size(36.dp).background(Color(0xFFD6E7FF), CircleShape)) { Icon(Icons.Default.SwapHoriz, "Reverse route", tint = HeaderBlue) }
+                    // Reserve the full touch target; the outline's label inset shifts its visible centre down 4 dp.
+                    Box(Modifier.size(48.dp).offset(y = 4.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(36.dp).background(Color(0xFFD6E7FF), CircleShape))
+                        IconButton(onClick = onSwapRoute, enabled = data.origin.isNotBlank() && data.destination.isNotBlank(),
+                            modifier = Modifier.size(48.dp)) { Icon(Icons.Default.SwapHoriz, "Reverse route", tint = HeaderBlue) }
+                    }
                     StationSuggestionField("To Station", data.destination, routes, setDestination, Modifier.weight(1f), stations)
                 }
                 val matchedPaths = matchingRoutes(routes, data.origin, data.destination)
