@@ -159,3 +159,7 @@ Added optional fares for the four supported train types, route/train-type fare l
 ## Adult fares and Others navigation
 
 Added exact decimal adult multipliers (1–4), ordinary-only return doubling and base fare recovery when saving a total. New bookings reject adult counts outside 1–4. Added an Others tile and separate searchable route/template lists with direct/Via filters; adjusted existing login/user navigation tests for the new entry point. Added three model tests and one navigation regression, bringing the suite to 76 tests. Home action buttons now use a purple tint. Kotlin parser, XML, ticket serialization and workflow checks pass. Android compilation/instrumentation remain unverified locally.
+
+## October 10 controls and station catalog
+
+Added six regressions for station persistence/unique extraction, name/code lookup and code exclusion from ticket JSON, combined passenger limits, Ordinary-only Return and repeated/manual fare calculation, reverse Via matching across multiple routes, and booking code/counter interaction. Existing login tests now verify automatic submission without clicking Login. Fare UI tests target the new Mail/Express pill, and template navigation tests scroll within Others. Total 82 instrumentation tests, not executed locally. Static Kotlin syntax (24 files), XML, workflow, ticket field symmetry and explicit Material icon imports pass. Android SDK/Gradle are unavailable locally. No on-device speed or pixel-equivalence claim is made.

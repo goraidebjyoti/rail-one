@@ -60,6 +60,7 @@ internal data class JourneyState(
     val showServices: Boolean = true,
     val walletPaise: Long = 0,
     val routes: List<SavedRoute> = emptyList(),
+    val stations: List<Station> = emptyList(),
 )
 internal fun parseBookingTime(value: String): Long? {
     if (!Regex("[0-9]{2}/[0-9]{2}/[0-9]{4} [0-9]{2}:[0-9]{2}").matches(value)) return null
@@ -98,8 +99,9 @@ internal fun draftError(d: TicketData): String? {
     if (distance == null || !distance.isFinite() || distance <= 0) return "Enter a positive distance in km."
     val adults = d.adults.toIntOrNull()
     val children = d.children.toIntOrNull()
-    if (adults == null || children == null || adults !in 1..4 || children < 0 || adults.toLong() + children == 0L)
-        return "Enter 1–4 adults and a valid child count."
+    if (adults == null || children == null || adults !in 1..4 || children < 0 || adults.toLong() + children > 4L)
+        return "Enter at least one adult and no more than four passengers in total."
+    if (d.ticketType == "RETURN" && d.trainType != "ORDINARY") return "Return tickets are available only for Ordinary trains."
     val booked = parseBookingTime(d.bookedOn) ?: return "Booked On must use dd/MM/yyyy HH:mm."
     val until = parseBookingTime(d.validTill) ?: return "Valid Till must use dd/MM/yyyy HH:mm."
     if (until <= booked) return "Valid Till must be later than Booked On."
@@ -178,6 +180,7 @@ internal class JourneyStore(private val context: Context, val userId: String = a
                 it.optString("stateName"), it.optString("country", "India"), it.optString("username"), it.optString("email"), it.optBoolean("divyangjan"), it.optString("menuVersion", "1.0"),
                 it.optString("postOffice"), it.optString("city")) },
             showServices = j.getBoolean("showServices"),
+            stations = if (j.has("stations")) readArray(j.getJSONArray("stations")) { Station(it.getString("name"), it.optString("code")) } else emptyList(),
             walletPaise = j.optLong("walletPaise", 0).also { require(it in 0..MAX_WALLET_PAISE) })
         val compatible = if (j.has("routes")) stored.copy(routes = readArray(j.getJSONArray("routes")) { route ->
             SavedRoute(route.getString("id"), route.getString("pairId"), route.getString("origin"), route.getString("destination"), route.optString("via"), route.optString("distance").ifBlank {
@@ -193,6 +196,7 @@ internal class JourneyStore(private val context: Context, val userId: String = a
     fun save(state: JourneyState): Boolean {
         val json = JSONObject().apply {
             put("version", 1)
+            put("stations", writeArray(state.stations) { station -> JSONObject().apply { put("name", station.name); put("code", station.code) } })
             put("tickets", writeArray(state.tickets) { t -> JSONObject().apply {
                 put("id", t.id); put("data", ticketJson(t.data)); put("createdAt", t.createdAt)
                 put("countdownEndsAt", t.countdownEndsAt); put("accentIndex", t.accentIndex)

@@ -39,6 +39,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -296,13 +299,21 @@ internal fun InputScreen(
     routes: List<SavedRoute> = emptyList(),
     onUseRoute: (SavedRoute) -> Unit = {},
     onSaveRoute: () -> Unit = {},
+    stations: List<Station> = emptyList(),
+    onSwapRoute: () -> Unit = {},
 ) {
     Column(
         Modifier
             .fillMaxSize()
             .background(PageBg)
     ) {
-        BookingHeader(onBack = onBack)
+        Row(Modifier.fillMaxWidth().background(HeaderBlue).statusBarsPadding().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack, modifier = Modifier.size(40.dp).border(1.dp, Color.White, CircleShape)) { Icon(Icons.Default.ArrowBack, "Back", tint = Color.White) }
+            Column(Modifier.padding(start = 16.dp)) {
+                Text("Unreserved Journey", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                Text("E-Ticket", color = Color.White, fontSize = 13.sp)
+            }
+        }
 
         Column(
             Modifier
@@ -376,8 +387,10 @@ internal fun InputScreen(
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    StationSuggestionField("From Station", data.origin, routes, setOrigin, Modifier.weight(1f))
-                    StationSuggestionField("To Station", data.destination, routes, setDestination, Modifier.weight(1f))
+                    StationSuggestionField("From Station", data.origin, routes, setOrigin, Modifier.weight(1f), stations)
+                    IconButton(onClick = onSwapRoute, enabled = data.origin.isNotBlank() && data.destination.isNotBlank(),
+                        modifier = Modifier.size(36.dp).background(Color(0xFFD6E7FF), CircleShape)) { Icon(Icons.Default.SwapHoriz, "Reverse route", tint = HeaderBlue) }
+                    StationSuggestionField("To Station", data.destination, routes, setDestination, Modifier.weight(1f), stations)
                 }
                 val matchedPaths = matchingRoutes(routes, data.origin, data.destination)
                 if (matchedPaths.size == 1 && matchedPaths.first().distance.isBlank()) {
@@ -403,10 +416,10 @@ internal fun InputScreen(
                 )
                 Field("Via", data.via, setVia, Modifier.fillMaxWidth())
                 OutlinedButton(onClick = onSaveRoute) { Text("Save Route and Reverse") }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Field("Adults (1–4)", data.adults, setAdults, Modifier.weight(1f), KeyboardType.Number)
-                    Field("Children", data.children, setChildren, Modifier.weight(1f), KeyboardType.Number)
-                }
+                PassengerCounter("Adult", data.adults.toIntOrNull() ?: 1, 1, (data.children.toIntOrNull() ?: 0), setAdults)
+                PassengerCounter("Child", data.children.toIntOrNull() ?: 0, 0, (data.adults.toIntOrNull() ?: 1), setChildren)
+                Text("Maximum 4 passengers, adults and children combined.", fontSize = 12.sp)
+
             }
 
             SectionCard(title = "Booking Time") {
@@ -434,8 +447,23 @@ internal fun InputScreen(
 
             SectionCard(title = "Ticket Details") {
                 DropdownField("Class", data.className, CLASS_OPTIONS, setClassName, Modifier.fillMaxWidth())
-                DropdownField("Train Type", data.trainType, TRAIN_TYPE_OPTIONS, setTrainType, Modifier.fillMaxWidth())
-                DropdownField("Ticket Type", data.ticketType, TICKET_TYPE_OPTIONS, setTicketType, Modifier.fillMaxWidth())
+                Text("Train Type", fontSize = 15.sp)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    BookingPill("ORDINARY", data.trainType == "ORDINARY", Modifier.weight(1f)) { setTrainType("ORDINARY") }
+                    BookingPill("MAIL/EXP", data.trainType == "MAIL/EXPRESS", Modifier.weight(1f)) { setTrainType("MAIL/EXPRESS") }
+                    var othersOpen by remember { mutableStateOf(false) }
+                    Box(Modifier.weight(1f)) {
+                        BookingPill(if (data.trainType in listOf("SUPERFAST", "AC EMU TRAIN")) data.trainType else "OTHERS ▾", data.trainType in listOf("SUPERFAST", "AC EMU TRAIN"), Modifier.fillMaxWidth()) { othersOpen = true }
+                        DropdownMenu(othersOpen, onDismissRequest = { othersOpen = false }) {
+                            listOf("SUPERFAST", "AC EMU TRAIN").forEach { type -> DropdownMenuItem(text = { Text(type) }, onClick = { setTrainType(type); othersOpen = false }) }
+                        }
+                    }
+                }
+                Text("Ticket Type", fontSize = 15.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    BookingPill("JOURNEY", data.ticketType == "JOURNEY") { setTicketType("JOURNEY") }
+                    BookingPill("RETURN", data.ticketType == "RETURN", enabled = data.trainType == "ORDINARY") { setTicketType("RETURN") }
+                }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     Field(
                         "Fare (₹)",
@@ -453,7 +481,7 @@ internal fun InputScreen(
             OutlinedButton(
                 onClick = onSaveJourney,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(14.dp),
+                shape = CircleShape,
                 border = androidx.compose.foundation.BorderStroke(1.4.dp, HeaderBlue),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = HeaderBlue)
             ) {
@@ -465,7 +493,7 @@ internal fun InputScreen(
             Button(
                 onClick = onGenerateTicket,
                 modifier = Modifier.fillMaxWidth().height(58.dp),
-                shape = RoundedCornerShape(16.dp),
+                shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(containerColor = HeaderBlue)
             ) {
                 Text("BOOK TICKET", fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
@@ -1125,4 +1153,21 @@ internal fun generateQrBitmap(payload: String, size: Int): Bitmap {
         }
     }
     return bitmap
+}
+
+@Composable
+internal fun BookingPill(label: String, selected: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+    OutlinedButton(onClick = onClick, enabled = enabled, modifier = modifier, shape = CircleShape,
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) HeaderBlue else Color.LightGray),
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = if (selected) HeaderBlue else Color.White, contentColor = if (selected) Color.White else Color(0xFF7A7B84))) { Text(label, fontSize = 11.sp) }
+}
+@Composable
+internal fun PassengerCounter(label: String, count: Int, minimum: Int, other: Int, onChange: (String) -> Unit) {
+    Row(Modifier.fillMaxWidth().border(1.dp, Color(0xFFCDE9ED), RoundedCornerShape(10.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f), color = Color(0xFF7A7B84), fontWeight = FontWeight.SemiBold)
+        IconButton(onClick = { onChange((count - 1).toString()) }, enabled = count > minimum) { Icon(Icons.Default.Remove, "Decrease $label", tint = if (count > minimum) HeaderBlue else Color.LightGray) }
+        Box(Modifier.background(HeaderBlue, CircleShape).padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text(count.toString(), color = Color.White) }
+        IconButton(onClick = { onChange((count + 1).toString()) }, enabled = count + other < 4) { Icon(Icons.Default.Add, "Increase $label", tint = if (count + other < 4) HeaderBlue else Color.LightGray) }
+    }
 }

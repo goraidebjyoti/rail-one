@@ -442,4 +442,54 @@ class JourneyStoreTest {
         assertNotNull(draftError(validDraft().copy(adults = "0")))
     }
 
+    @Test fun stationCatalogPreservesCodesAndFindsUniqueRouteStations() {
+        val routes = emptyList<SavedRoute>().saveRoutePair(SavedRoute(origin = "KHARAGPUR", destination = "HOWRAH", distance = "116"))
+        val state = JourneyState(routes = routes, stations = listOf(Station("KHARAGPUR", "KGP"), Station("DELHI", "DLI")), tickets = listOf(ticket()))
+        assertTrue(store.save(state))
+        assertEquals(state, store.load(testNow))
+        assertEquals(3, stationCatalog(state).size)
+        assertEquals("KGP", stationCatalog(state).single { it.name == "KHARAGPUR" }.code)
+    }
+    @Test fun codeLookupUsesFullNamesAndRejectsDuplicateStationCodes() {
+        val catalog = listOf(Station("KHARAGPUR", "KGP"), Station("HOWRAH", "HWH"))
+        assertEquals("KHARAGPUR", stationName("kgp", catalog))
+        assertEquals("NORTH ", stationName("North ", catalog))
+        assertEquals("KHARAGPUR", stationMatches(catalog, "kgp").single().name)
+        assertEquals("HOWRAH", stationMatches(catalog, "howr").single().name)
+        assertNotNull(stationError(Station("DELHI", "KGP"), catalog))
+        val data = validDraft().copy(origin = stationName("KGP", catalog), destination = stationName("HWH", catalog))
+        assertFalse(ticketJson(data).toString().contains("KGP"))
+        assertFalse(ticketJson(data).toString().contains("HWH"))
+    }
+    @Test fun passengerLimitIncludesChildren() {
+        val draft = validDraft().copy(adults = "2", children = "2")
+        assertNull(draftError(draft))
+        assertNotNull(draftError(draft.copy(children = "3")))
+        assertEquals(draft, draft.withPassengerCount("3", true, emptyList()))
+        assertEquals(draft, draft.withPassengerCount("3", false, emptyList()))
+        assertEquals("1", draft.withPassengerCount("1", false, emptyList()).children)
+        assertEquals("65.00", draft.copy(fare = "65.00").withPassengerCount("1", false, emptyList()).fare)
+    }
+    @Test fun returnRestrictedToOrdinaryAndManualFareDoublesOnlyOnce() {
+        val draft = validDraft().copy(trainType = "ORDINARY", ticketType = "JOURNEY", adults = "2", fare = "60.00")
+        val returned = draft.withTicketTypeFare("RETURN", emptyList())
+        assertEquals("120.00", returned.fare)
+        assertEquals("120.00", returned.withTicketTypeFare("RETURN", emptyList()).fare)
+        assertEquals("60.00", returned.withTicketTypeFare("JOURNEY", emptyList()).fare)
+        assertEquals("JOURNEY", returned.withTrainTypeFare("MAIL/EXPRESS", emptyList()).ticketType)
+        assertNotNull(draftError(draft.copy(trainType = "SUPERFAST", ticketType = "RETURN")))
+    }
+    @Test fun routeSwapKeepsMatchingViaVariantAndReverseFare() {
+        val route = SavedRoute(origin = "HOWRAH", destination = "KHARAGPUR", via = "SRC-PKU", distance = "116", fares = mapOf("ORDINARY" to "30.00"))
+        val routes = emptyList<SavedRoute>().saveRoutePair(route).saveRoutePair(route.copy(id = "other", pairId = "other", via = "OTHER", distance = "130"))
+        val draft = validDraft().copy(trainType = "ORDINARY").withRoute(routes.first { it.id == route.id })
+        val swapped = draft.swappedRoute(routes)
+        assertEquals("KHARAGPUR", swapped.origin)
+        assertEquals("PKU-SRC", swapped.via)
+        assertEquals("116", swapped.distance)
+        assertEquals("30.00", swapped.fare)
+        assertEquals(draft, swapped.swappedRoute(routes))
+        assertEquals("", draft.copy(via = "UNSAVED").swappedRoute(routes).fare)
+    }
+
 }

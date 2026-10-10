@@ -110,17 +110,23 @@ internal fun LaunchGate(session: LoginSession) {
     else if (currentLocked) {
         BackHandler { activity.finish() }
         val name = remember(userId) { runCatching { JourneyStore(context, userId).load().profile.name }.getOrDefault("") }
-        LoginPage(name, pin, { pin = it; error = "" }, error, busy, config.biometric && available,
-            onLogin = {
-                if (!busy) scope.launch {
+        fun submitPin() {
+                if (!busy && pin.length == 6) {
+                    val enteredPin = pin
                     busy = true
+                    scope.launch {
                     try {
-                        val result = withContext(Dispatchers.IO) { store.verify(pin) }
+                        val result = withContext(Dispatchers.IO) { store.verify(enteredPin) }
                         if (activeUserId(context) == currentUserId) { if (result.accepted) { session.unlocked = true; pin = ""; error = "" } else error = result.error }
                     } catch (_: Exception) { error = "Could not verify mPIN. Please retry." }
                     finally { busy = false }
                 }
-            }, onDifferentUser = { usersOpen = true }, onBiometric = { biometricLogin() }, onReset = {
+            
+                }
+        }
+        LaunchedEffect(pin) { if (pin.length == 6) submitPin() }
+        LoginPage(name, pin, { pin = it; error = "" }, error, busy, config.biometric && available,
+            onLogin = { submitPin() }, onDifferentUser = { usersOpen = true }, onBiometric = { biometricLogin() }, onReset = {
                 val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
                 if (!keyguard.isDeviceSecure) error = "Set a device screen lock to use mPIN recovery."
                 else {

@@ -192,3 +192,15 @@ Saved fares represent one adult travelling one way. For a saved route, changing 
 You → Others now groups Saved Routes, Users, App Login and Saved Journey Templates. The Others tile matches the existing account tile dimensions and corner radius. Routes and templates open separate pages with search, result counts, All/Direct/Via filters and Use/Edit/Delete actions. Home ticket action buttons have a purple tint matching the supplied reference. Existing stored tickets and route data are unchanged.
 
 76 instrumentation tests are included. Static syntax/XML/workflow checks passed; Android build and emulator tests were not run locally.
+
+## October 10 booking update
+
+Entering all six mPIN digits submits once automatically, with existing incorrect-PIN handling and retry limits retained. Others, routes, templates and station-management pages use circular outlined back buttons.
+
+Booking uses pill selectors for Ordinary/Mail/Express and an Others menu containing only Superfast and AC EMU. Return is enabled only for Ordinary; choosing another train type resets it to Journey. Adult/child counters enforce one adult minimum and four passengers maximum in total. Ordinary Return fares are twice the journey adult total. Fare overrides remain editable; children do not change the adult fare calculation.
+
+The route swap button reverses stations and Via order. Exact saved reverse paths provide their own distance/fare; multiple Via variants remain selectable. Manage Stations in Others lists unique saved-route endpoints, permits assigning/removing unique uppercase codes and adding standalone stations, and provides search and an unassigned-code filter. Codes resolve to full names during booking; codes are not added to TicketData, tickets, details or invoice PDFs. Station catalogs are stored independently for each local user.
+
+Live booking drafts now use a saveable TicketData state instead of JSON conversion per keystroke; station catalogs are cached and the clock ticker pauses during editing. Draft restoration, discard prompts, saved templates/routes, Booked On/Now, Valid Till, class, IR number and service number are retained. Book Ticket and template buttons use capsule shapes.
+
+82 Android instrumentation tests are included. Static Kotlin/XML/workflow and icon import checks passed; Android compilation, emulator tests, visual rendering and typing responsiveness were not verified locally.

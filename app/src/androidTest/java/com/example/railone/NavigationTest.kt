@@ -61,11 +61,9 @@ class NavigationTest {
         scenario.recreate()
         compose.onNodeWithTag("login-pin").assertExists()
         compose.onNodeWithTag("login-pin").performTextInput("999999")
-        compose.onNodeWithTag("login-submit").performScrollTo().performClick()
         compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithText("Incorrect mPIN.").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("home-content").assertDoesNotExist()
         compose.onNodeWithTag("login-pin").performTextReplacement("123456")
-        compose.onNodeWithTag("login-submit").performScrollTo().performClick()
         compose.waitUntil(timeoutMillis = 10_000) { compose.onAllNodesWithTag("home-content").fetchSemanticsNodes().isNotEmpty() }
         org.junit.Assert.assertEquals(2, JourneyStore(context).load().tickets.size)
         AppLockStore(context).save(false, false)
@@ -416,7 +414,6 @@ class NavigationTest {
         compose.onNodeWithText("Different User?", substring = false).assertExists()
         compose.onNodeWithTag("home-content").assertDoesNotExist()
         compose.onNodeWithTag("login-pin").performTextInput("123456")
-        compose.onNodeWithTag("login-submit").performScrollTo().performClick()
         compose.waitUntil(timeoutMillis = 10000) { compose.onAllNodesWithTag("home-content").fetchSemanticsNodes().isNotEmpty() }
         org.junit.Assert.assertEquals(2, JourneyStore(context).load().tickets.size)
         org.junit.Assert.assertEquals("traveller", JourneyStore(context).load().profile.username)
@@ -432,8 +429,7 @@ class NavigationTest {
         compose.onNodeWithContentDescription("New Ticket").performClick()
         compose.onNode(hasSetTextAction() and hasText("From Station")).performScrollTo().performTextInput("DELHI")
         compose.onNode(hasSetTextAction() and hasText("To Station")).performTextInput("AGRA")
-        compose.onNode(hasText("Train Type")).performScrollTo().performClick()
-        compose.onNodeWithText("MAIL/EXPRESS", substring = false).performClick()
+        compose.onNodeWithText("MAIL/EXP", substring = false).performScrollTo().performClick()
         compose.onNode(hasSetTextAction() and hasText("Fare (₹)")).performScrollTo().assertTextContains("60.00")
         compose.onNode(hasSetTextAction() and hasText("Fare (₹)")).performTextReplacement("65.00")
         compose.onNode(hasSetTextAction() and hasText("Fare (₹)")).assertTextContains("65.00")
@@ -456,11 +452,32 @@ class NavigationTest {
         compose.onNodeWithText("Direct", substring = false).performClick()
         compose.onNodeWithText("No matching routes.").assertExists()
         compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithTag("others-content").performScrollToNode(hasText("Saved Journey Templates"))
         compose.onNodeWithText("Saved Journey Templates").performClick()
         compose.onNodeWithTag("saved-search").performTextInput("NOT-A-STATION")
         compose.onNodeWithText("No matching templates.").assertExists()
         compose.onNodeWithTag("saved-search").performTextReplacement(first.data.origin)
         compose.onNodeWithText("1 found").assertExists()
+    }
+
+    @Test fun bookingCodeSearchAndCountersKeepCombinedPassengerLimit() {
+        scenario.close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        JourneyStore(context).save(JourneyState(stations = listOf(Station("KHARAGPUR", "KGP"), Station("HOWRAH", "HWH")), profile = UserProfile("Traveller", "9876543210", username = "traveller")))
+        launchHome()
+        compose.onNodeWithContentDescription("New Ticket").performClick()
+        compose.onNode(hasSetTextAction() and hasText("From Station")).performScrollTo().performTextInput("KGP")
+        compose.onNode(hasSetTextAction() and hasText("From Station")).assertTextContains("KHARAGPUR")
+        compose.onNode(hasSetTextAction() and hasText("To Station")).performTextInput("HWH")
+        compose.onNodeWithContentDescription("Reverse route").performClick()
+        compose.onNode(hasSetTextAction() and hasText("From Station")).assertTextContains("HOWRAH")
+        repeat(2) { compose.onNodeWithContentDescription("Increase Adult").performScrollTo().performClick() }
+        compose.onNodeWithContentDescription("Increase Child").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Increase Child").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Increase Adult").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithText("RETURN", substring = false).performScrollTo().performClick()
+        compose.onNodeWithText("MAIL/EXP", substring = false).performClick()
+        compose.onNodeWithText("RETURN", substring = false).assertIsNotEnabled()
     }
 
 }

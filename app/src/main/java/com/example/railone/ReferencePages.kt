@@ -508,14 +508,14 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
     onUseTemplate: (SavedJourney) -> Unit, onDeleteTemplate: (SavedJourney) -> Unit,
     onPhoto: () -> Unit = {}, onRemovePhoto: () -> Unit = {}, onWalletAdd: () -> Unit = {}, onWalletRefresh: () -> Unit = {}, onAccount: () -> Unit = onProfile,
     loginEnabled: Boolean = false, biometricEnabled: Boolean = false, onLoginSettings: () -> Unit = {}, onBiometricToggle: () -> Unit = {}, onAddRoute: () -> Unit = {}, onUseRoute: (SavedRoute) -> Unit = {},
-    onEditRoute: (SavedRoute) -> Unit = {}, onDeleteRoute: (SavedRoute) -> Unit = {}, onSwitchUser: () -> Unit = {}) {
+    onEditRoute: (SavedRoute) -> Unit = {}, onDeleteRoute: (SavedRoute) -> Unit = {}, onSwitchUser: () -> Unit = {}, onSaveStation: (Station) -> String? = { null }) {
     var section by rememberSaveable { mutableStateOf("Profile") }
     androidx.activity.compose.BackHandler(enabled = section != "Profile") {
         section = if (section == "Others") "Profile" else "Others"
     }
     if (section != "Profile") {
         ProfileLibraryPage(section, state, onBack = { section = if (section == "Others") "Profile" else "Others" },
-            onSection = { section = it }, onSwitchUser = onSwitchUser, onLoginSettings = onLoginSettings,
+            onSection = { section = it }, onSaveStation = onSaveStation, onSwitchUser = onSwitchUser, onLoginSettings = onLoginSettings,
             onAddRoute = onAddRoute, onUseRoute = onUseRoute, onEditRoute = onEditRoute, onDeleteRoute = onDeleteRoute,
             onNewTemplate = onNewTemplate, onUseTemplate = onUseTemplate, onEditTemplate = onEditTemplate, onDeleteTemplate = onDeleteTemplate)
         return
@@ -714,21 +714,45 @@ private fun BiometricTile(enabled: Boolean, modifier: Modifier, onClick: () -> U
 private fun ProfileLibraryPage(section: String, state: JourneyState, onBack: () -> Unit, onSection: (String) -> Unit,
     onSwitchUser: () -> Unit, onLoginSettings: () -> Unit, onAddRoute: () -> Unit,
     onUseRoute: (SavedRoute) -> Unit, onEditRoute: (SavedRoute) -> Unit, onDeleteRoute: (SavedRoute) -> Unit,
-    onNewTemplate: () -> Unit, onUseTemplate: (SavedJourney) -> Unit, onEditTemplate: (SavedJourney) -> Unit, onDeleteTemplate: (SavedJourney) -> Unit) {
+    onNewTemplate: () -> Unit, onUseTemplate: (SavedJourney) -> Unit, onEditTemplate: (SavedJourney) -> Unit, onDeleteTemplate: (SavedJourney) -> Unit, onSaveStation: (Station) -> String?) {
     var query by rememberSaveable(section) { mutableStateOf("") }
+    var stationEditing by remember { mutableStateOf<Station?>(null) }
+    var unassigned by rememberSaveable { mutableStateOf(false) }
+    stationEditing?.let { station -> StationEditor(station, { stationEditing = null }) { edited ->
+        val problem = onSaveStation(edited); if (problem == null) stationEditing = null; problem
+    } }
     var directOnly by rememberSaveable(section) { mutableStateOf(false) }
     var withViaOnly by rememberSaveable(section) { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().background(Color.White)) {
         Row(Modifier.fillMaxWidth().background(Blue).statusBarsPadding().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Back", tint = Color.White) }
+            IconButton(onClick = onBack, modifier = Modifier.size(40.dp).border(1.dp, Color.White, CircleShape)) { Icon(Icons.Default.ArrowBack, "Back", tint = Color.White) }
             Text(section, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
         }
         if (section == "Others") {
-            LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 20.dp)) {
+            LazyColumn(Modifier.fillMaxSize().testTag("others-content"), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 20.dp)) {
+                item { ProfileOptionCard("Manage Stations", "Assign codes or add stations", Icons.Default.Train, PaleBlue) { onSection("Manage Stations") } }
                 item { ProfileOptionCard("Saved Routes", "${state.routes.size} directions saved", Icons.Default.Route, PaleBlue) { onSection("Saved Routes") } }
                 item { ProfileOptionCard("Users", "Switch or add a local user", Icons.Default.People, PaleBlue, onSwitchUser) }
                 item { ProfileOptionCard("App Login", "Set mPIN and device biometric login", Icons.Default.Lock, PaleBlue, onLoginSettings) }
                 item { ProfileOptionCard("Saved Journey Templates", "${state.templates.size} saved", Icons.Default.Bookmark, PaleViolet) { onSection("Saved Journey Templates") } }
+            }
+        } else if (section == "Manage Stations") {
+            OutlinedTextField(query, { query = it }, label = { Text("Search station name or code") }, modifier = Modifier.fillMaxWidth().padding(17.dp), singleLine = true)
+            Row(Modifier.padding(horizontal = 17.dp), verticalAlignment = Alignment.CenterVertically) {
+                FilterChip(unassigned, onClick = { unassigned = !unassigned }, label = { Text("Unassigned codes") })
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { stationEditing = Station("") }) { Text("Add Station") }
+            }
+            val catalog = remember(state.stations, state.routes) { stationCatalog(state) }
+            val found = catalog.filter { (it.name.contains(query.trim(), true) || it.code.contains(query.trim(), true)) && (!unassigned || it.code.isBlank()) }
+            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(17.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                item { Text("${found.size} stations", color = Muted) }
+                items(found, key = { it.name }) { station ->
+                    Row(Modifier.fillMaxWidth().background(PaleBlue, RoundedCornerShape(12.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(station.display, modifier = Modifier.weight(1f), color = Ink)
+                        TextButton(onClick = { stationEditing = station }) { Text("Edit") }
+                    }
+                }
             }
         } else {
             OutlinedTextField(query, { query = it }, label = { Text("Search stations, Via or details") }, leadingIcon = { Icon(Icons.Default.Search, null) },

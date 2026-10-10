@@ -136,10 +136,10 @@ internal fun stationSuggestions(routes: List<SavedRoute>, query: String): List<S
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun StationSuggestionField(label: String, value: String, routes: List<SavedRoute>, onValue: (String) -> Unit,
-    modifier: Modifier = Modifier) {
+    modifier: Modifier = Modifier, stations: List<Station> = emptyList()) {
     var focused by remember { mutableStateOf(false) }
     var dismissed by remember { mutableStateOf(false) }
-    val suggestions = stationSuggestions(routes, value)
+    val suggestions = remember(stations, routes, value) { stationMatches(stations.ifEmpty { routes.flatMap { listOf(Station(it.origin), Station(it.destination)) }.distinctBy { it.name } }, value) }
     val expanded = focused && !dismissed && suggestions.isNotEmpty()
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { dismissed = !it }, modifier = modifier) {
         OutlinedTextField(value, { dismissed = false; onValue(it.uppercase(Locale.ROOT)) },
@@ -147,8 +147,8 @@ internal fun StationSuggestionField(label: String, value: String, routes: List<S
             modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryEditable)
                 .onFocusChanged { focused = it.isFocused })
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { dismissed = true }) {
-            suggestions.forEach { station -> DropdownMenuItem(text = { Text(station) }, onClick = {
-                dismissed = true; onValue(station)
+            suggestions.forEach { station -> DropdownMenuItem(text = { Text(station.display) }, onClick = {
+                dismissed = true; onValue(station.name)
             }) }
         }
     }
@@ -167,7 +167,8 @@ internal fun TicketData.savedPath(routes: List<SavedRoute>): SavedRoute? = match
     .filter { normalVia(it.via) == normalVia(via) }.singleOrNull()
 internal fun TicketData.withTrainTypeFare(type: String, routes: List<SavedRoute>): TicketData {
     val route = savedPath(routes)
-    return copy(trainType = type, fare = if (route == null) fare else copy(trainType = type).calculatedRouteFare(route.fares[type].orEmpty()))
+    val changed = copy(trainType = type, ticketType = if (type != "ORDINARY") "JOURNEY" else ticketType)
+    return changed.copy(fare = if (route == null) if (type == trainType) fare else "" else changed.calculatedRouteFare(route.fares[type].orEmpty()))
 }
 internal fun TicketData.routeForSaving(routes: List<SavedRoute>): SavedRoute {
     val existing = savedPath(routes)
@@ -184,5 +185,27 @@ internal fun TicketData.calculatedRouteFare(base: String): String = base.toBigDe
 internal fun TicketData.singleAdultFare(): String = fare.toBigDecimal().divide(fareMultiplier().toBigDecimal(), 2, java.math.RoundingMode.HALF_UP).toPlainString()
 internal fun TicketData.withAdultCount(value: String, routes: List<SavedRoute>): TicketData =
     copy(adults = value).withTrainTypeFare(trainType, routes)
-internal fun TicketData.withTicketTypeFare(value: String, routes: List<SavedRoute>): TicketData =
-    copy(ticketType = value).withTrainTypeFare(trainType, routes)
+internal fun TicketData.withTicketTypeFare(value: String, routes: List<SavedRoute>): TicketData {
+    val changed = copy(ticketType = if (trainType == "ORDINARY") value else "JOURNEY")
+    return changed.copy(fare = fareForChange(changed, routes))
+}
+internal fun TicketData.fareForChange(changed: TicketData, routes: List<SavedRoute>): String {
+    val route = changed.savedPath(routes)
+    if (route != null) return changed.calculatedRouteFare(route.fares[changed.trainType].orEmpty())
+    if (fare.toBigDecimalOrNull() == null) return ""
+    return fare.toBigDecimal().multiply(changed.fareMultiplier().toBigDecimal()).divide(fareMultiplier().toBigDecimal(), 2, java.math.RoundingMode.HALF_UP).toPlainString()
+}
+
+internal fun TicketData.withPassengerCount(value: String, adult: Boolean, routes: List<SavedRoute>): TicketData {
+    val count = value.toIntOrNull() ?: return this
+    val other = (if (adult) children else adults).toIntOrNull() ?: return this
+    if (count < (if (adult) 1 else 0) || count + other > 4) return this
+    val changed = if (adult) copy(adults = count.toString()) else copy(children = count.toString())
+    return if (adult) changed.copy(fare = fareForChange(changed, routes)) else changed
+}
+internal fun TicketData.swappedRoute(routes: List<SavedRoute>): TicketData {
+    val changed = copy(origin = destination, destination = origin, via = reverseVia(via))
+    val paths = matchingRoutes(routes, changed.origin, changed.destination)
+    val exact = paths.singleOrNull { normalVia(it.via) == normalVia(changed.via) }
+    return (exact ?: paths.singleOrNull())?.let { changed.withRoute(it) } ?: if (paths.size > 1) changed.copy(distance = "", fare = "") else changed
+}

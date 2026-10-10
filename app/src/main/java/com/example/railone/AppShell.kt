@@ -60,10 +60,11 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var editorReturnTicketId by rememberSaveable { mutableStateOf<String?>(null) }
     var templateId by rememberSaveable { mutableStateOf<String?>(null) }
-    var draftRaw by rememberSaveable { mutableStateOf(ticketJson(freshDraft()).toString()) }
-    var draftBaselineRaw by rememberSaveable { mutableStateOf(draftRaw) }
+    var draft by rememberSaveable(stateSaver = androidx.compose.runtime.saveable.Saver<TicketData, String>(
+        save = { ticketJson(it).toString() }, restore = { ticketFromJson(JSONObject(it)) })) { mutableStateOf(freshDraft()) }
+    var draftBaselineRaw by rememberSaveable { mutableStateOf(ticketJson(draft).toString()) }
     var pendingDiscard by rememberSaveable { mutableStateOf(false) }
-    val draft = remember(draftRaw) { ticketFromJson(JSONObject(draftRaw)) }
+    val draftBaseline = remember(draftBaselineRaw) { ticketFromJson(JSONObject(draftBaselineRaw)) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     var profileEditing by rememberSaveable { mutableStateOf(false) }
@@ -73,6 +74,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
     var photoBusy by remember { mutableStateOf(false) }
     var routeEditing by remember { mutableStateOf<SavedRoute?>(null) }
     var passengerEditingId by rememberSaveable { mutableStateOf<String?>(null) }
+    val catalog = remember(state.routes, state.stations) { stationCatalog(state) }
     val passengerEditing = passengerEditingId?.let { id ->
         state.passengers.find { it.id == id } ?: Passenger(id = id, name = "", mobile = "")
     }
@@ -89,7 +91,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
             controller.isAppearanceLightNavigationBars = page != "Main" || tab == "My Bookings"
         }
     }
-    LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(1000) } }
+    LaunchedEffect(page) { if (page != "Editor") while (true) { now = System.currentTimeMillis(); delay(1000) } }
     fun notify(text: String) { scope.launch { snackbar.showSnackbar(text) } }
     fun persist(updated: JourneyState): Boolean {
         if (loaded.isFailure) { message = "Stored data could not be read. Nothing has been overwritten. Restore a device backup or contact support with the source project."; return false }
@@ -121,7 +123,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
             } finally { photoBusy = false }
         }
     }
-    fun setDraft(updated: TicketData) { draftRaw = ticketJson(updated).toString(); error = null }
+    fun setDraft(updated: TicketData) { draft = updated; error = null }
     fun edit(data: TicketData, id: String? = null) {
         bookingProfileError(state.profile)?.let { notify(it); tab = "You"; page = "Main"; profileEditing = true; return }
         editorReturnTicketId = if (page == "Ticket") selectedId else null
@@ -150,7 +152,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
         runCatching { context.startActivity(intent) }.onFailure { notify("No app is available to open this action.") }
     }
     fun requestBack() {
-        if (page == "Editor" && draftRaw != draftBaselineRaw) pendingDiscard = true else back()
+        if (page == "Editor" && draft != draftBaseline) pendingDiscard = true else back()
     }
     BackHandler(enabled = page != "Main" || tab != "Home") {
         if (page != "Main") requestBack() else tab = "Home"
@@ -188,12 +190,12 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                             data = draft, savedJourneys = state.templates,
                             setPassengerName = { setDraft(draft.copy(passengerName = it)) },
                             setMobile = { setDraft(draft.copy(mobile = it.filter(Char::isDigit).take(15))) },
-                            setOrigin = { setDraft(draft.copy(origin = it.uppercase(java.util.Locale.ROOT)).fillUniqueSavedRoute(state.routes)) },
+                            setOrigin = { setDraft(draft.copy(origin = stationName(it, catalog)).fillUniqueSavedRoute(state.routes)) },
                             setDistance = { setDraft(draft.copy(distance = it)) },
-                            setDestination = { setDraft(draft.copy(destination = it.uppercase(java.util.Locale.ROOT)).fillUniqueSavedRoute(state.routes)) },
+                            setDestination = { setDraft(draft.copy(destination = stationName(it, catalog)).fillUniqueSavedRoute(state.routes)) },
                             setVia = { setDraft(draft.copy(via = it.uppercase(java.util.Locale.ROOT)).withTrainTypeFare(draft.trainType, state.routes)) },
-                            setAdults = { setDraft(draft.withAdultCount(it.filter(Char::isDigit).takeIf { value -> value.isEmpty() || (value.toIntOrNull()?.let { it in 1..4 } == true) } ?: draft.adults, state.routes)) },
-                            setChildren = { setDraft(draft.copy(children = it.filter(Char::isDigit))) },
+                            setAdults = { setDraft(draft.withPassengerCount(it, adult = true, routes = state.routes)) },
+                            setChildren = { setDraft(draft.withPassengerCount(it, adult = false, routes = state.routes)) },
                             setBookedOn = { setDraft(draft.copy(bookedOn = it, bookingDateTime = toTicketDisplayDateTime(it),
                                 validTill = addHours(it, 3) ?: draft.validTill)) },
                             setValidTill = { setDraft(draft.copy(validTill = it)) },
@@ -212,25 +214,25 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                                 setDraft(draftFromTemplate(it)); templateId = null
                             } },
                             onSaveJourney = {
-                                val bookingDraft = draft.copy(passengerName = state.profile.name.trim(), mobile = state.profile.mobile.trim())
+                                val bookingDraft = draft.copy(passengerName = state.profile.name.trim(), mobile = state.profile.mobile.trim(), origin = normalStation(stationName(draft.origin, catalog)), destination = normalStation(stationName(draft.destination, catalog)))
                                 val problem = bookingProfileError(state.profile) ?: draftError(bookingDraft)
                                 if (problem != null) error = problem else {
                                     val template = templateFromDraft(bookingDraft, templateId ?: UUID.randomUUID().toString())
                                     if (persist(state.copy(templates = state.templates.filterNot { it.id == template.id } + template))) {
-                                        templateId = template.id; draftBaselineRaw = draftRaw; notify("Journey template saved")
+                                        templateId = template.id; draftBaselineRaw = ticketJson(draft).toString(); notify("Journey template saved")
                                     }
                                 }
                             },
                             onDeleteJourney = { confirm = "template" to it },
                             onGenerateTicket = {
-                                val bookingDraft = draft.copy(passengerName = state.profile.name.trim(), mobile = state.profile.mobile.trim())
+                                val bookingDraft = draft.copy(passengerName = state.profile.name.trim(), mobile = state.profile.mobile.trim(), origin = normalStation(stationName(draft.origin, catalog)), destination = normalStation(stationName(draft.destination, catalog)))
                                 val problem = bookingProfileError(state.profile) ?: draftError(bookingDraft)
                                 if (problem != null) error = problem else {
                                     var reference = generateJourneyTicket()
                                     while (state.tickets.any { it.data.journeyTicket == reference }) reference = generateJourneyTicket()
                                     val time = System.currentTimeMillis()
-                                    val frozen = bookingDraft.copy(passengerName = state.profile.name.trim(), mobile = state.profile.mobile.trim(), origin = draft.origin.trim(),
-                                        destination = draft.destination.trim(), fare = formatFare(draft.fare),
+                                    val frozen = bookingDraft.copy(passengerName = state.profile.name.trim(), mobile = state.profile.mobile.trim(), origin = bookingDraft.origin,
+                                        destination = bookingDraft.destination, fare = formatFare(draft.fare),
                                         bookingDateTime = toTicketDisplayDateTime(draft.bookedOn), journeyTicket = reference)
                                     val ticket = StoredTicket(data = frozen, createdAt = time,
                                         countdownEndsAt = time + TICKET_COUNTDOWN_SECONDS * 1000L,
@@ -246,6 +248,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                             error = error, routes = state.routes,
                             onUseRoute = { setDraft(draft.withRoute(it)) },
                             onSaveRoute = { routeEditing = draft.routeForSaving(state.routes) },
+                            stations = catalog, onSwapRoute = { setDraft(draft.swappedRoute(state.routes)) },
                         )
                         "Ticket" -> if (selected != null && selected.status(now) == "Completed") CompletedTicketPage(selected.data,
                             onBack = { back() }, onInvoice = {
@@ -294,7 +297,11 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                                 onAddPassenger = { passengerEditingId = UUID.randomUUID().toString() },
                                 onEditPassenger = { passengerEditingId = it.id },
                                 onDeletePassenger = { confirm = "passenger" to it.id },
-                                onSwitchUser = onSwitchUser, onAddRoute = { routeEditing = SavedRoute() },
+                                onSaveStation = { station ->
+                                    val catalog = stationCatalog(state)
+                                    val problem = stationError(station, catalog)
+                                    if (problem != null) problem else if (persist(state.copy(stations = catalog.filterNot { it.name == station.name } + station))) null else "Could not save station."
+                                }, onSwitchUser = onSwitchUser, onAddRoute = { routeEditing = SavedRoute() },
                                 onUseRoute = { edit(freshDraft().withRoute(it)) },
                                 onEditRoute = { routeEditing = it }, onDeleteRoute = { confirm = "route" to it.pairId },
                                 onNewTemplate = { edit(freshDraft()) },
@@ -328,7 +335,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
             title = { Text("Discard draft changes?") },
             text = { Text("The changes in this booking form have not been saved as a ticket or template.") },
             confirmButton = { TextButton(onClick = {
-                pendingDiscard = false; draftRaw = draftBaselineRaw; back()
+                pendingDiscard = false; draft = draftBaseline; back()
             }) { Text("Discard") } },
             dismissButton = { TextButton(onClick = { pendingDiscard = false }) { Text("Keep Editing") } })
         message?.let { text -> AlertDialog(onDismissRequest = { message = null }, title = { Text("Rail One") },
@@ -348,7 +355,8 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
             onDelete = { confirm = "profile" to "profile" })
         routeEditing?.let { route -> SavedRouteSheet(route, isEditing = state.routes.any { it.id == route.id },
             onDismiss = { routeEditing = null }, onSave = { edited, updateReverse ->
-                val result = runCatching { state.routes.editRoute(edited, updateReverse) }
+                val canonical = edited.copy(origin = stationName(edited.origin, catalog), destination = stationName(edited.destination, catalog))
+                val result = runCatching { state.routes.editRoute(canonical, updateReverse) }
                 if (result.isFailure) result.exceptionOrNull()?.message ?: "Could not save the route."
                 else if (persist(state.copy(routes = result.getOrThrow()))) {
                     routeEditing = null; notify(if (updateReverse) "Both directions saved" else "Selected direction saved"); null
