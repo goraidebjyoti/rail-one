@@ -41,12 +41,12 @@ internal fun CompletedTicketPage(data: TicketData, onBack: () -> Unit, onInvoice
                     val x = size.width * .82f
                     drawCircle(background, 15.dp.toPx(), Offset(x, 0f))
                     drawCircle(background, 15.dp.toPx(), Offset(x, size.height))
-                }.padding(horizontal = 15.dp, vertical = 28.dp)) {
+                }.padding(horizontal = 15.dp, vertical = 20.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(data.ticketType, fontSize = 14.sp, modifier = Modifier.weight(1f))
                     Text(data.journeyTicket, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
-                Spacer(Modifier.height(22.dp))
+                Spacer(Modifier.height(18.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(data.origin, fontSize = 13.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
                     Text(data.destination, fontSize = 13.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.End, modifier = Modifier.weight(1f))

@@ -136,14 +136,14 @@ internal fun stationSuggestions(routes: List<SavedRoute>, query: String): List<S
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun StationSuggestionField(label: String, value: String, routes: List<SavedRoute>, onValue: (String) -> Unit,
-    modifier: Modifier = Modifier, stations: List<Station> = emptyList()) {
+    modifier: Modifier = Modifier, stations: List<Station> = emptyList(), leadingIcon: (@Composable () -> Unit)? = null) {
     var focused by remember { mutableStateOf(false) }
     var dismissed by remember { mutableStateOf(false) }
     val suggestions = remember(stations, routes, value) { stationMatches(stations.ifEmpty { routes.flatMap { listOf(Station(it.origin), Station(it.destination)) }.distinctBy { it.name } }, value) }
     val expanded = focused && !dismissed && suggestions.isNotEmpty()
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { dismissed = !it }, modifier = modifier) {
         OutlinedTextField(value, { dismissed = false; onValue(it.uppercase(Locale.ROOT)) },
-            label = { Text(label) }, singleLine = true, colors = fieldColors(),
+            label = { Text(label) }, leadingIcon = leadingIcon, singleLine = true, colors = fieldColors(),
             modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryEditable)
                 .onFocusChanged { focused = it.isFocused })
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { dismissed = true }) {

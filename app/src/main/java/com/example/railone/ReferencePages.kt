@@ -408,7 +408,7 @@ internal fun ReferenceBookingFilters(tickets: List<StoredTicket>, now: Long, fil
                 .border(if (selected) 1.dp else 0.dp, if (selected) Color.White else Color.Transparent, RoundedCornerShape(9.dp))
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                     if (!selected) onFilter(label)
-                }.semantics { contentDescription = "$label, ${tickets.count { label == "All" || it.status(now) == label }} tickets" },
+                }.semantics { contentDescription = "$label, ${tickets.count { if (label == "All") it.status(now) in listOf("Upcoming", "Completed") else it.status(now) == label }} tickets" },
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Picture(if (selected) when (label) {
                     "Completed" -> R.drawable.booking_filter_completed
@@ -444,7 +444,7 @@ internal fun BookingsPage(tickets: List<StoredTicket>, now: Long, filter: String
     onFilter: (String) -> Unit, onSort: () -> Unit, onNew: () -> Unit,
     onView: (StoredTicket) -> Unit, onRepeat: (StoredTicket) -> Unit, onCancel: (StoredTicket) -> Unit, onRefresh: () -> Unit, onBack: () -> Unit,
     onDelete: (StoredTicket) -> Unit = {}, sortBy: String = "Booking Date") {
-    val matching = tickets.filter { filter == "All" || it.status(now) == filter }
+    val matching = tickets.filter { if (filter == "All") it.status(now) in listOf("Upcoming", "Completed") else it.status(now) == filter }
     val sorted = sortedBookings(matching, newestFirst, sortBy)
     Column(Modifier.fillMaxSize().background(Color.White)) {
         Row(Modifier.fillMaxWidth().background(Blue).statusBarsPadding().height(68.dp).padding(horizontal = 13.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -452,7 +452,7 @@ internal fun BookingsPage(tickets: List<StoredTicket>, now: Long, filter: String
             Text("My Bookings", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f).padding(start = 18.dp))
             IconButton(onClick = onSort) { Picture(R.drawable.booking_sort, "Sort & Filters", Modifier.size(24.dp)) }
         }
-        if (sorted.isNotEmpty()) Row(Modifier.fillMaxWidth().height(42.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (sorted.isNotEmpty() && filter != "All") Row(Modifier.fillMaxWidth().height(42.dp), verticalAlignment = Alignment.CenterVertically) {
             Spacer(Modifier.width(42.dp))
             Text("$filter (${matching.size})", color = bookingColour(filter), fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
             IconButton(onClick = onRefresh) { Icon(Icons.Default.Sync, "Refresh bookings", tint = Muted, modifier = Modifier.size(21.dp)) }
@@ -465,7 +465,22 @@ internal fun BookingsPage(tickets: List<StoredTicket>, now: Long, filter: String
                     Text("No Tickets Found. Swipe down to refresh.", color = Color(0xFFB0B0B0), fontSize = 13.sp, textAlign = TextAlign.Center)
                 }
             } else LazyColumn(modifier = Modifier.fillMaxSize().testTag("bookings-list"), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                items(sorted, key = { it.id }) { BookingCard(it, now, onView, onRepeat, onCancel, onDelete) }
+                if (filter == "All") {
+                    listOf("Upcoming", "Completed").forEach { status ->
+                        val group = sorted.filter { it.status(now) == status }
+                        if (group.isNotEmpty()) {
+                            item(key = "heading-$status") {
+                                Row(Modifier.fillMaxWidth().height(42.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Spacer(Modifier.width(42.dp))
+                                    Text("$status (${group.size})", color = bookingColour(status), fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+                                    IconButton(onClick = onRefresh) { Icon(Icons.Default.Sync, "Refresh $status bookings", tint = Muted, modifier = Modifier.size(21.dp)) }
+                                }
+                            }
+                            items(group, key = { it.id }) { BookingCard(it, now, onView, onRepeat, onCancel, onDelete) }
+                        }
+                    }
+                } else items(sorted, key = { it.id }) { BookingCard(it, now, onView, onRepeat, onCancel, onDelete) }
             }
         }
     }
@@ -735,12 +750,21 @@ private fun ProfileLibraryPage(section: String, state: JourneyState, onBack: () 
                 fontWeight = FontWeight.SemiBold)
         }
         if (section == "Others") {
-            LazyColumn(Modifier.fillMaxSize().testTag("others-content"), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 20.dp)) {
-                item { ProfileOptionCard("Manage Stations", "Assign codes or add stations", Icons.Default.Train, PaleBlue) { onSection("Manage Stations") } }
-                item { ProfileOptionCard("Saved Routes", "${state.routes.size} directions saved", Icons.Default.Route, PaleBlue) { onSection("Saved Routes") } }
-                item { ProfileOptionCard("Users", "Switch or add a local user", Icons.Default.People, PaleBlue, onSwitchUser) }
-                item { ProfileOptionCard("App Login", "Set mPIN and device biometric login", Icons.Default.Lock, PaleBlue, onLoginSettings) }
-                item { ProfileOptionCard("Saved Journey Templates", "${state.templates.size} saved", Icons.Default.Bookmark, PaleViolet) { onSection("Saved Journey Templates") } }
+            LazyColumn(Modifier.fillMaxSize().testTag("others-content"), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(16.dp)) {
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OthersSquare("Manage Stations", Icons.Default.Train, PaleBlue, Modifier.weight(1f)) { onSection("Manage Stations") }
+                        OthersSquare("Saved Routes", Icons.Default.Route, Color(0xFFEAFBE7), Modifier.weight(1f)) { onSection("Saved Routes") }
+                        OthersSquare("Users", Icons.Default.People, Color(0xFFFFF0DF), Modifier.weight(1f), onSwitchUser)
+                    }
+                }
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OthersSquare("App Login", Icons.Default.Lock, PaleViolet, Modifier.weight(1f), onLoginSettings)
+                        OthersSquare("Saved Journey Templates", Icons.Default.Description, Color(0xFFFFEAF0), Modifier.weight(1f)) { onSection("Saved Journey Templates") }
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
             }
         } else if (section == "Manage Stations") {
             OutlinedTextField(query, { query = it }, label = { Text("Search station name or code") }, modifier = Modifier.fillMaxWidth().padding(17.dp), singleLine = true)
@@ -808,5 +832,15 @@ private fun ProfileLibraryPage(section: String, state: JourneyState, onBack: () 
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun OthersSquare(title: String, icon: ImageVector, colour: Color, modifier: Modifier, onClick: () -> Unit) {
+    Column(modifier.aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(colour).clickable(onClick = onClick)
+        .padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Icon(icon, null, tint = Blue, modifier = Modifier.size(30.dp))
+        Spacer(Modifier.height(6.dp))
+        Text(title, color = Ink, fontSize = 11.sp, lineHeight = 13.sp, textAlign = TextAlign.Center, maxLines = 3)
     }
 }

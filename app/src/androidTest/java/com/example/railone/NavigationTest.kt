@@ -370,7 +370,7 @@ class NavigationTest {
         compose.onNodeWithContentDescription("New Ticket").performClick()
         compose.onNode(hasSetTextAction() and hasText("From Station")).performScrollTo().performTextInput("del")
         compose.onNodeWithText("DELHI", substring = false).performClick()
-        compose.onNode(hasSetTextAction() and hasText("To Station")).performTextInput("agr")
+        compose.onNode(hasSetTextAction() and hasText("To Station")).performScrollTo().performTextInput("agr")
         compose.onNodeWithText("AGRA", substring = false).performClick()
         compose.onNode(hasSetTextAction() and hasText("Via", substring = false)).assertTextContains("ABC-DEF")
         compose.onNode(hasSetTextAction() and hasText("Distance (km)")).assertTextContains("175")
@@ -428,7 +428,7 @@ class NavigationTest {
         launchHome()
         compose.onNodeWithContentDescription("New Ticket").performClick()
         compose.onNode(hasSetTextAction() and hasText("From Station")).performScrollTo().performTextInput("DELHI")
-        compose.onNode(hasSetTextAction() and hasText("To Station")).performTextInput("AGRA")
+        compose.onNode(hasSetTextAction() and hasText("To Station")).performScrollTo().performTextInput("AGRA")
         compose.onNodeWithText("MAIL/EXP", substring = false).performScrollTo().performClick()
         compose.onNode(hasSetTextAction() and hasText("Fare (₹)")).performScrollTo().assertTextContains("60.00")
         compose.onNode(hasSetTextAction() and hasText("Fare (₹)")).performTextReplacement("65.00")
@@ -468,7 +468,7 @@ class NavigationTest {
         compose.onNodeWithContentDescription("New Ticket").performClick()
         compose.onNode(hasSetTextAction() and hasText("From Station")).performScrollTo().performTextInput("KGP")
         compose.onNode(hasSetTextAction() and hasText("From Station")).assertTextContains("KHARAGPUR")
-        compose.onNode(hasSetTextAction() and hasText("To Station")).performTextInput("HWH")
+        compose.onNode(hasSetTextAction() and hasText("To Station")).performScrollTo().performTextInput("HWH")
         compose.onNodeWithContentDescription("Reverse route").performClick()
         compose.onNode(hasSetTextAction() and hasText("From Station")).assertTextContains("HOWRAH")
         repeat(2) { compose.onNodeWithContentDescription("Increase Adult").performScrollTo().performClick() }
@@ -476,8 +476,28 @@ class NavigationTest {
         compose.onNodeWithContentDescription("Increase Child").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Increase Adult").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithText("RETURN", substring = false).performScrollTo().performClick()
-        compose.onNodeWithText("MAIL/EXP", substring = false).performClick()
-        compose.onNodeWithText("RETURN", substring = false).assertIsNotEnabled()
+        compose.onNodeWithText("MAIL/EXP", substring = false).performScrollTo().performClick()
+        compose.onNodeWithText("RETURN", substring = false).assertDoesNotExist()
+    }
+
+    @Test fun allBookingsGroupsUpcomingBeforeCompletedAndExcludesCancelled() {
+        scenario.close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val completed = second.copy(data = second.data.copy(bookedOn = "01/01/2020 10:00"))
+        val cancelled = first.copy(id = "cancelled-fixture", cancelled = true)
+        JourneyStore(context).save(JourneyState(tickets = listOf(completed, cancelled, first),
+            profile = UserProfile("Traveller", "9876543210", username = "traveller")))
+        launchHome()
+        compose.onNodeWithText("My Bookings").performClick()
+        compose.onNodeWithContentDescription("All, 2 tickets").performClick()
+        compose.onNodeWithText("All (2)").assertDoesNotExist()
+        compose.onNodeWithText("Upcoming (1)").assertIsDisplayed()
+        compose.onNodeWithTag("bookings-list").performScrollToNode(hasText("Completed (1)"))
+        compose.onNodeWithText("Completed (1)").assertIsDisplayed()
+        compose.onNodeWithTag("booking-ticket-${completed.id}").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("booking-ticket-${cancelled.id}").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Cancelled, 1 tickets").performClick()
+        compose.onNodeWithTag("booking-ticket-${cancelled.id}").performScrollTo().assertIsDisplayed()
     }
 
 }

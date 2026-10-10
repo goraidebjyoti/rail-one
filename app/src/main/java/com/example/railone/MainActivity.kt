@@ -39,6 +39,10 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
@@ -386,15 +390,17 @@ internal fun InputScreen(
                         routes.forEach { route -> DropdownMenuItem(text = { Text(route.label) }, onClick = { onUseRoute(route); routesOpen = false }) }
                     }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp), verticalAlignment = Alignment.CenterVertically) {
-                    StationSuggestionField("From Station", data.origin, routes, setOrigin, Modifier.weight(1f), stations)
-                    // Reserve the full touch target; the outline's label inset shifts its visible centre down 4 dp.
-                    Box(Modifier.size(48.dp).offset(y = 4.dp), contentAlignment = Alignment.Center) {
-                        Box(Modifier.size(36.dp).background(Color(0xFFD6E7FF), CircleShape))
-                        IconButton(onClick = onSwapRoute, enabled = data.origin.isNotBlank() && data.destination.isNotBlank(),
-                            modifier = Modifier.size(48.dp)) { Icon(Icons.Default.SwapHoriz, "Reverse route", tint = HeaderBlue) }
+                Box(Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth().padding(end = 52.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        StationSuggestionField("From Station", data.origin, routes, setOrigin, Modifier.fillMaxWidth(), stations,
+                            leadingIcon = { Icon(painterResource(R.drawable.station_train_side), null, tint = Color(0xFF7A7B84)) })
+                        StationSuggestionField("To Station", data.destination, routes, setDestination, Modifier.fillMaxWidth(), stations,
+                            leadingIcon = { Icon(painterResource(R.drawable.station_train_side), null, tint = Color(0xFF7A7B84), modifier = Modifier.graphicsLayer { scaleX = -1f }) })
                     }
-                    StationSuggestionField("To Station", data.destination, routes, setDestination, Modifier.weight(1f), stations)
+                    IconButton(onClick = onSwapRoute, enabled = data.origin.isNotBlank() && data.destination.isNotBlank(),
+                        modifier = Modifier.align(Alignment.CenterEnd).size(48.dp).background(Color(0xFFD6E7FF), CircleShape)) {
+                        Icon(Icons.Default.SwapHoriz, "Reverse route", tint = HeaderBlue, modifier = Modifier.rotate(90f).size(24.dp))
+                    }
                 }
                 val matchedPaths = matchingRoutes(routes, data.origin, data.destination)
                 if (matchedPaths.size == 1 && matchedPaths.first().distance.isBlank()) {
@@ -413,16 +419,9 @@ internal fun InputScreen(
                     }
                 }
                 Field("Distance (km)", data.distance, setDistance, Modifier.fillMaxWidth(), KeyboardType.Decimal)
-                Text(
-                    "From/To station and Via are always saved in UPPERCASE.",
-                    fontSize = 11.sp,
-                    color = Color(0xFF7A7B84)
-                )
                 Field("Via", data.via, setVia, Modifier.fillMaxWidth())
                 OutlinedButton(onClick = onSaveRoute) { Text("Save Route and Reverse") }
-                PassengerCounter("Adult", data.adults.toIntOrNull() ?: 1, 1, (data.children.toIntOrNull() ?: 0), setAdults)
-                PassengerCounter("Child", data.children.toIntOrNull() ?: 0, 0, (data.adults.toIntOrNull() ?: 1), setChildren)
-                Text("Maximum 4 passengers, adults and children combined.", fontSize = 12.sp)
+
 
             }
 
@@ -450,14 +449,13 @@ internal fun InputScreen(
             }
 
             SectionCard(title = "Ticket Details") {
-                DropdownField("Class", data.className, CLASS_OPTIONS, setClassName, Modifier.fillMaxWidth())
                 Text("Train Type", fontSize = 15.sp)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     BookingPill("ORDINARY", data.trainType == "ORDINARY", Modifier.weight(1f)) { setTrainType("ORDINARY") }
                     BookingPill("MAIL/EXP", data.trainType == "MAIL/EXPRESS", Modifier.weight(1f)) { setTrainType("MAIL/EXPRESS") }
                     var othersOpen by remember { mutableStateOf(false) }
                     Box(Modifier.weight(1f)) {
-                        BookingPill(if (data.trainType in listOf("SUPERFAST", "AC EMU TRAIN")) data.trainType else "OTHERS ▾", data.trainType in listOf("SUPERFAST", "AC EMU TRAIN"), Modifier.fillMaxWidth()) { othersOpen = true }
+                        BookingPill(if (data.trainType in listOf("SUPERFAST", "AC EMU TRAIN")) data.trainType else "OTHERS", data.trainType in listOf("SUPERFAST", "AC EMU TRAIN"), Modifier.fillMaxWidth(), dropdown = true) { othersOpen = true }
                         DropdownMenu(othersOpen, onDismissRequest = { othersOpen = false }) {
                             listOf("SUPERFAST", "AC EMU TRAIN").forEach { type -> DropdownMenuItem(text = { Text(type) }, onClick = { setTrainType(type); othersOpen = false }) }
                         }
@@ -466,7 +464,14 @@ internal fun InputScreen(
                 Text("Ticket Type", fontSize = 15.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     BookingPill("JOURNEY", data.ticketType == "JOURNEY") { setTicketType("JOURNEY") }
-                    BookingPill("RETURN", data.ticketType == "RETURN", enabled = data.trainType == "ORDINARY") { setTicketType("RETURN") }
+                    if (data.trainType == "ORDINARY") BookingPill("RETURN", data.ticketType == "RETURN") { setTicketType("RETURN") }
+                }
+                PassengerCounter("Adult", data.adults.toIntOrNull() ?: 1, 1, (data.children.toIntOrNull() ?: 0), setAdults)
+                PassengerCounter("Child", data.children.toIntOrNull() ?: 0, 0, (data.adults.toIntOrNull() ?: 1), setChildren)
+                Text("Aged between 5 and 12 years on the day of Travel", fontSize = 12.sp)
+                Text("Class", fontSize = 15.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CLASS_OPTIONS.forEach { option -> BookingPill(option, data.className == option) { setClassName(option) } }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     Field(
@@ -1160,18 +1165,25 @@ internal fun generateQrBitmap(payload: String, size: Int): Bitmap {
 }
 
 @Composable
-internal fun BookingPill(label: String, selected: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+internal fun BookingPill(label: String, selected: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true, dropdown: Boolean = false, onClick: () -> Unit) {
     OutlinedButton(onClick = onClick, enabled = enabled, modifier = modifier, shape = CircleShape,
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) HeaderBlue else Color.LightGray),
-        colors = ButtonDefaults.outlinedButtonColors(containerColor = if (selected) HeaderBlue else Color.White, contentColor = if (selected) Color.White else Color(0xFF7A7B84))) { Text(label, fontSize = 11.sp) }
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = if (selected) HeaderBlue else Color.White, contentColor = if (selected) Color.White else Color(0xFF7A7B84))) {
+        Text(label, fontSize = 11.sp, modifier = if (dropdown) Modifier.weight(1f) else Modifier,
+            textAlign = TextAlign.Center, maxLines = 2)
+        if (dropdown) {
+            Spacer(Modifier.width(4.dp))
+            Icon(Icons.Default.KeyboardArrowDown, null, tint = if (selected) Color.White else HeaderBlue, modifier = Modifier.size(24.dp))
+        }
+    }
 }
 @Composable
 internal fun PassengerCounter(label: String, count: Int, minimum: Int, other: Int, onChange: (String) -> Unit) {
     Row(Modifier.fillMaxWidth().border(1.dp, Color(0xFFCDE9ED), RoundedCornerShape(10.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, modifier = Modifier.weight(1f), color = Color(0xFF7A7B84), fontWeight = FontWeight.SemiBold)
         IconButton(onClick = { onChange((count - 1).toString()) }, enabled = count > minimum) { Icon(Icons.Default.Remove, "Decrease $label", tint = if (count > minimum) HeaderBlue else Color.LightGray) }
-        Box(Modifier.background(HeaderBlue, CircleShape).padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text(count.toString(), color = Color.White) }
+        Box(Modifier.size(width = 42.dp, height = 32.dp).background(HeaderBlue, RoundedCornerShape(16.dp)), contentAlignment = Alignment.Center) { Text(count.toString(), color = Color.White) }
         IconButton(onClick = { onChange((count + 1).toString()) }, enabled = count + other < 4) { Icon(Icons.Default.Add, "Increase $label", tint = if (count + other < 4) HeaderBlue else Color.LightGray) }
     }
 }
