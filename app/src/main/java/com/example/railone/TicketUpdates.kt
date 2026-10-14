@@ -85,22 +85,6 @@ internal fun ticketHoldVibration(context: android.content.Context): Boolean = ru
 }.getOrDefault(false)
 
 @Composable
-private fun SummaryField(label: String, value: String, modifier: Modifier = Modifier, right: Boolean = false) {
-    Column(modifier, horizontalAlignment = if (right) Alignment.End else Alignment.Start) {
-        Text(label, color = Color(0xFF777782), fontSize = 12.sp, lineHeight = 15.sp, letterSpacing = .2.sp)
-        Spacer(Modifier.height(3.dp))
-        Text(value, color = Color(0xFF252529), fontSize = 13.sp, lineHeight = 17.sp,
-            fontWeight = FontWeight.SemiBold, textAlign = if (right) TextAlign.End else TextAlign.Start)
-    }
-}
-@Composable
-private fun SummaryPair(left: String, value: String, right: String, rightValue: String) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        SummaryField(left, value, Modifier.weight(1f))
-        SummaryField(right, rightValue, Modifier.weight(1.2f).padding(top = 8.dp), right = true)
-    }
-}
-@Composable
 internal fun HeldTicketSummary(data: TicketData, status: String, onDismiss: () -> Unit) {
     val density = LocalDensity.current
     val corner = with(density) { 22.dp.toPx() }
@@ -120,33 +104,17 @@ internal fun HeldTicketSummary(data: TicketData, status: String, onDismiss: () -
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Box(Modifier.matchParentSize().clickable(indication = null, interactionSource = remember { MutableInteractionSource() }, onClick = onDismiss))
             Column(Modifier.fillMaxWidth(.9f).widthIn(max = 440.dp).verticalScroll(rememberScrollState())
-                .clip(shape).background(Color(0xFFFAF8FB))
+                .clip(shape).background(Color.White)
                 .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { /* Keep taps inside the summary. */ }
                 .testTag("held-ticket-summary")) {
-                Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                        SummaryField("Journey Ticket", data.journeyTicket, Modifier.weight(1f))
-                        Box(Modifier.background(Color(0xFFE8F3E5), CircleShape).padding(horizontal = 12.dp, vertical = 8.dp)) {
-                            Text(if (status == "Upcoming") "● ACTIVE" else status.uppercase(), color = Color(0xFF579C58), fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
-                    SummaryPair("Source", data.origin, "Destination", data.destination)
-                    SummaryPair("Distance", "${normalDistance(data.distance)} km", "Passenger", "${data.adults} Adult, ${data.children} Child")
-                    SummaryPair("Ticket Type", data.ticketType, "Train Types", data.trainType)
-                    SummaryPair("Class", data.className, "Fare", "₹${data.fare}")
-                    SummaryPair("Booked on", data.bookedOn, "*Valid Till", data.validTill)
-                    Row(Modifier.fillMaxWidth().border(1.dp, Color(0xFFE6E3E9), RoundedCornerShape(10.dp)).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ViaRouteIcon(); Spacer(Modifier.width(6.dp)); Text("Via: ${data.via.ifBlank { "-" }}", fontSize = 11.sp)
-                    }
-                    Text("IR: ${data.irNumber}", fontSize = 12.sp, color = Color(0xFF62626A))
-                }
+                TicketBodyFields(data, showValidity = true)
                 Canvas(Modifier.fillMaxWidth().height(28.dp)) {
                     drawLine(Color(0xFFB7B4BE), Offset(radius, size.height/2), Offset(size.width-radius, size.height/2),
                         strokeWidth = .7.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 2.dp.toPx())))
                 }
                 Box(Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterStart) {
                     Text("*Valid for start of journey within 1 hour or until departure of the first train.",
-                        fontSize = 12.sp, lineHeight = 17.sp, color = Color(0xFF777782))
+                        fontSize = 11.sp, lineHeight = 15.sp, color = Color(0xFF7A7B84))
                 }
             }
         }
@@ -154,7 +122,7 @@ internal fun HeldTicketSummary(data: TicketData, status: String, onDismiss: () -
 }
 
 @Composable
-internal fun UpgradeTicketSheet(ticket: StoredTicket, routes: List<SavedRoute>, onDismiss: () -> Unit, onConfirm: (String) -> String?) {
+internal fun UpgradeTicketSheet(ticket: StoredTicket, routes: List<SavedRoute>, onDismiss: () -> Unit, onConfirm: (String) -> String?, stations: List<Station> = emptyList()) {
     val suggested = remember(ticket.id, routes) { upgradeSurcharge(ticket.data, routes) }
     var surcharge by rememberSaveable(ticket.id) { mutableStateOf(suggested.orEmpty()) }
     var editing by rememberSaveable(ticket.id) { mutableStateOf(false) }
@@ -166,9 +134,16 @@ internal fun UpgradeTicketSheet(ticket: StoredTicket, routes: List<SavedRoute>, 
         LaunchedEffect(Unit) { withFrameNanos { }; entered = true }
         val view = LocalView.current
         DisposableEffect(view) {
-            val window = (view.parent as? DialogWindowProvider)?.window
+            val window = (view as? DialogWindowProvider)?.window ?: generateSequence(view.parent) { it.parent }.filterIsInstance<DialogWindowProvider>().firstOrNull()?.window
             @Suppress("DEPRECATION")
             if (window != null) {
+                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                window.setDimAmount(0f)
+                androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+                val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+                controller.isAppearanceLightStatusBars = true
+                controller.isAppearanceLightNavigationBars = true
+                if (android.os.Build.VERSION.SDK_INT >= 29) window.isStatusBarContrastEnforced = false
                 window.statusBarColor = android.graphics.Color.WHITE
                 window.navigationBarColor = android.graphics.Color.WHITE
                 window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or
@@ -187,19 +162,29 @@ internal fun UpgradeTicketSheet(ticket: StoredTicket, routes: List<SavedRoute>, 
                     }
                     Text("Journey Ticket", fontSize = 15.sp, color = Color(0xFF53535B), textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp))
-                    Row(Modifier.fillMaxWidth().background(Color(0xFFF0F7FC)).padding(horizontal = 16.dp, vertical = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(ticket.data.origin, Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Row(Modifier.fillMaxWidth().background(Color(0xFFF0F7FC)).padding(horizontal = 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(ticket.data.origin, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            stationCode(ticket.data.origin, stations).takeIf { it.isNotBlank() }?.let { code ->
+                                Spacer(Modifier.height(3.dp)); Text(code, fontSize = 14.sp, color = Color(0xFF53535B))
+                            }
+                        }
                         Icon(Icons.Default.ArrowForward, null, tint = Color(0xFF92939B), modifier = Modifier.padding(horizontal = 10.dp).size(20.dp))
-                        Text(ticket.data.destination, Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.End)
+                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                            Text(ticket.data.destination, fontSize = 15.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.End)
+                            stationCode(ticket.data.destination, stations).takeIf { it.isNotBlank() }?.let { code ->
+                                Spacer(Modifier.height(3.dp)); Text(code, fontSize = 14.sp, color = Color(0xFF53535B))
+                            }
+                        }
                     }
                     val passengerCount = (ticket.data.adults.toIntOrNull() ?: 0) + (ticket.data.children.toIntOrNull() ?: 0)
                     Text("$passengerCount Passenger${if (passengerCount == 1) "" else "s"}", fontSize = 15.sp, color = Color(0xFF53535B), modifier = Modifier.padding(top = 16.dp, bottom = 26.dp))
                     Row(Modifier.fillMaxWidth()) {
-                        SummaryField("Class", ticket.data.className, Modifier.weight(1f))
-                        SummaryField("Train Type", "SUPERFAST", Modifier.weight(1f), right = true)
+                        UpgradeField("Class", ticket.data.className, Modifier.weight(1f))
+                        UpgradeField("Train Type", "SUPERFAST", Modifier.weight(1f), right = true)
                     }
                     Spacer(Modifier.height(18.dp))
-                    SummaryField("Duration", "Daily")
+                    UpgradeField("Duration", "Daily")
                     Spacer(Modifier.height(24.dp))
                     Row(Modifier.fillMaxWidth().background(Color(0xFFF0F7FC)).padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         UpgradeFareIcon()
@@ -234,5 +219,19 @@ private fun UpgradeFareIcon() {
         drawLine(Color.White, Offset(size.width*.26f, size.height*.2f), Offset(size.width*.26f, size.height*.8f),
             strokeWidth = 1.3.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 1.5.dp.toPx())))
         listOf(.3f, .5f, .7f).forEach { y -> drawLine(Color.White, Offset(size.width*.4f, size.height*y), Offset(size.width*.8f, size.height*y), strokeWidth = 1.3.dp.toPx()) }
+    }
+}
+
+internal fun stationCode(name: String, stations: List<Station>): String = stations.firstOrNull {
+    normalStation(it.name) == normalStation(name)
+}?.code.orEmpty()
+
+@Composable
+private fun UpgradeField(label: String, value: String, modifier: Modifier = Modifier, right: Boolean = false) {
+    Column(modifier, horizontalAlignment = if (right) Alignment.End else Alignment.Start) {
+        Text(label, color = Color(0xFF6F7078), fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.Normal)
+        Spacer(Modifier.height(3.dp))
+        Text(value, fontSize = 15.sp, lineHeight = 20.sp, color = Color(0xFF252529), fontWeight = FontWeight.Medium,
+            textAlign = if (right) TextAlign.End else TextAlign.Start)
     }
 }

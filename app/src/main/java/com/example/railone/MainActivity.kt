@@ -654,6 +654,7 @@ internal fun TicketScreen(data: TicketData, secondsLeft: Int, accent: Color, onB
         Column(
             Modifier
                 .weight(1f)
+                .alpha(if (summaryOpen) 0f else 1f)
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
         ) {
@@ -700,7 +701,7 @@ internal fun TicketScreen(data: TicketData, secondsLeft: Int, accent: Color, onB
             ) {
                 Text("Book Connecting Journey", fontSize = 15.sp, fontWeight = FontWeight.Medium)
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (data.trainType != "ORDINARY") Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (status == "Upcoming" && data.trainType == "MAIL/EXPRESS") Button(onClick = onUpgrade,
                     modifier = Modifier.weight(1f), shape = CircleShape) { Text("Upgrade to Superfast", fontSize = 12.sp) }
                 Button(onClick = onRepeat, modifier = Modifier.weight(1f), shape = CircleShape) { Text("Book Again") }
@@ -966,77 +967,7 @@ internal fun TicketBody(data: TicketData, accent: Color) {
             .background(TicketBody)
     ) {
         // All the regular field content stays inset from the card edges...
-        Column(Modifier.padding(horizontal = 12.dp)) {
-            Spacer(Modifier.height(13.5.dp))
-            Box(Modifier.fillMaxWidth()) {
-                Column(Modifier.fillMaxWidth(0.7f)) {
-                    Text(
-                        "Journey Ticket",
-                        fontSize = 11.sp,
-                        color = Color(0xFF7A7B84),
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 12.sp
-                    )
-                    Spacer(Modifier.height(2.5.dp))
-                    Text(
-                        data.journeyTicket,
-                        fontSize = 14.sp,
-                        color = Color.Black,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp,
-                        lineHeight = 17.sp
-                    )
-                }
-                // Compact pill pinned to the top-right, level with the "Journey
-                // Ticket" line. It is shorter than the label+code block, so it never
-                // adds height and the gap below the code stays the same as between
-                // the other rows.
-                Box(
-                    Modifier
-                        .align(Alignment.TopEnd)
-                        .height(24.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(GreenBg)
-                        .padding(horizontal = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "● ACTIVE",
-                        color = GreenText,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-
-            TwoColumnField("Source", data.origin, "Destination", data.destination, boldValues = true)
-            Spacer(Modifier.height(12.dp))
-            TwoColumnField("Distance", "${normalDistance(data.distance)} km", "Passenger", "${data.adults} Adult, ${data.children} Child", boldValues = true)
-            Spacer(Modifier.height(12.dp))
-            TwoColumnField("Ticket Type", data.ticketType, "Train Types", data.trainType, boldValues = true)
-            Spacer(Modifier.height(12.dp))
-            TwoColumnField("Class", data.className, "Fare", "₹${data.fare}", boldValues = true)
-
-            Spacer(Modifier.height(10.dp))
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(ViaBoxBg)
-                    .border(1.dp, Color(0xFFE3E1E3), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 14.dp, vertical = 7.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ViaRouteIcon()
-                    Spacer(Modifier.width(7.dp))
-                    Text("Via: ${data.via}", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            Spacer(Modifier.height(4.5.dp))
-            Text("IR:${data.irNumber}", color = Color.Black, fontSize = 13.sp, letterSpacing = 0.6.sp)
-        }
+        TicketBodyFields(data)
 
         // Cutout notches sit right at the card's true edges, so this divider
         // spans the full card width rather than the inset content width.
@@ -1207,4 +1138,84 @@ internal fun PassengerCounter(label: String, count: Int, minimum: Int, other: In
         Box(Modifier.size(width = 42.dp, height = 32.dp).background(HeaderBlue, RoundedCornerShape(16.dp)), contentAlignment = Alignment.Center) { Text(count.toString(), color = Color.White) }
         IconButton(onClick = { onChange((count + 1).toString()) }, enabled = count + other < 4) { Icon(Icons.Default.Add, "Increase $label", tint = if (count + other < 4) HeaderBlue else Color.LightGray) }
     }
+}
+
+@Composable
+internal fun TicketBodyFields(data: TicketData, showValidity: Boolean = false) {
+        Column(Modifier.padding(horizontal = 12.dp)) {
+            Spacer(Modifier.height(13.5.dp))
+            Box(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth(0.7f)) {
+                    Text(
+                        "Journey Ticket",
+                        fontSize = 11.sp,
+                        color = Color(0xFF7A7B84),
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 12.sp
+                    )
+                    Spacer(Modifier.height(2.5.dp))
+                    Text(
+                        data.journeyTicket,
+                        fontSize = 14.sp,
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp,
+                        lineHeight = 17.sp
+                    )
+                }
+                // Compact pill pinned to the top-right, level with the "Journey
+                // Ticket" line. It is shorter than the label+code block, so it never
+                // adds height and the gap below the code stays the same as between
+                // the other rows.
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .height(24.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(GreenBg)
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "● ACTIVE",
+                        color = GreenText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+
+            TwoColumnField("Source", data.origin, "Destination", data.destination, boldValues = true)
+            Spacer(Modifier.height(12.dp))
+            TwoColumnField("Distance", "${normalDistance(data.distance)} km", "Passenger", "${data.adults} Adult, ${data.children} Child", boldValues = true)
+            Spacer(Modifier.height(12.dp))
+            TwoColumnField("Ticket Type", data.ticketType, "Train Types", data.trainType, boldValues = true)
+            Spacer(Modifier.height(12.dp))
+            TwoColumnField("Class", data.className, "Fare", "₹${data.fare}", boldValues = true)
+
+            if (showValidity) {
+                Spacer(Modifier.height(12.dp))
+                TwoColumnField("Booked on", data.bookedOn, "*Valid Till", data.validTill, boldValues = true)
+            }
+            Spacer(Modifier.height(10.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(ViaBoxBg)
+                    .border(1.dp, Color(0xFFE3E1E3), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp, vertical = 7.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ViaRouteIcon()
+                    Spacer(Modifier.width(7.dp))
+                    Text("Via: ${data.via}", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(Modifier.height(4.5.dp))
+            Text("IR:${data.irNumber}", color = Color.Black, fontSize = 13.sp, letterSpacing = 0.6.sp)
+        }
+
 }

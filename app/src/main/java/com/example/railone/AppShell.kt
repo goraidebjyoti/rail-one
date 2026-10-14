@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -61,6 +62,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
     var bookingsSortOpen by rememberSaveable { mutableStateOf(false) }
     var bookingsSortBy by rememberSaveable { mutableStateOf("Booking Date") }
     var bookingsNewestFirst by rememberSaveable { mutableStateOf(true) }
+    var previewExpiryTab by rememberSaveable { mutableStateOf("Home") }
     var returnTab by rememberSaveable { mutableStateOf("Home") }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var editorReturnTicketId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -84,15 +86,16 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
         state.passengers.find { it.id == id } ?: Passenger(id = id, name = "", mobile = "")
     }
     var confirm by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var bookingsRefreshing by remember { mutableStateOf(false) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     SideEffect {
         (context as? android.app.Activity)?.window?.let { window ->
-            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            window.statusBarColor = if (upgradeId != null) android.graphics.Color.WHITE else android.graphics.Color.TRANSPARENT
             window.navigationBarColor = android.graphics.Color.TRANSPARENT
             val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
-            controller.isAppearanceLightStatusBars = page == "Main" && tab != "My Bookings"
+            controller.isAppearanceLightStatusBars = upgradeId != null || (page == "Main" && tab != "My Bookings")
             controller.isAppearanceLightNavigationBars = page != "Main" || tab == "My Bookings"
         }
     }
@@ -113,6 +116,18 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
     fun refreshData() {
         runCatching { store.load() }.onSuccess { state = it; notify("Saved data refreshed") }
             .onFailure { notify("Could not read saved data. Existing records were kept.") }
+    }
+    fun refreshBookings() {
+        if (bookingsRefreshing) return
+        scope.launch {
+            bookingsRefreshing = true
+            val baseline = state
+            withFrameNanos { }
+            val read = withContext(Dispatchers.IO) { runCatching { store.load() } }
+            delay(20)
+            read.onSuccess { if (state == baseline) state = it }
+            bookingsRefreshing = false
+        }
     }
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null && !photoBusy) scope.launch {
@@ -143,7 +158,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
         })
         if (persist(updated)) {
             now = openedAt
-            selectedId = ticket.id; returnTab = tab; page = "Ticket"
+            selectedId = ticket.id; returnTab = tab; previewExpiryTab = tab; page = "Ticket"
         }
     }
     fun back() {
@@ -162,9 +177,15 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
     BackHandler(enabled = page != "Main" || tab != "Home") {
         if (page != "Main") requestBack() else tab = "Home"
     }
+    LaunchedEffect(page, selectedId, now) {
+        val ticket = state.tickets.find { it.id == selectedId }
+        if (page == "Ticket" && ticket != null && ticket.status(now) != "Completed" && ticket.secondsLeft(now) == 0) {
+            upgradeId = null; selectedId = null; page = "Main"; tab = previewExpiryTab
+        }
+    }
     MaterialTheme(colorScheme = lightColorScheme(primary = AppBlue, background = Color.White)) {
         val upgradeTicket = state.tickets.find { it.id == upgradeId }
-        if (upgradeTicket != null) UpgradeTicketSheet(upgradeTicket, state.routes,
+        if (upgradeTicket != null) UpgradeTicketSheet(upgradeTicket, state.routes, stations = catalog,
             onDismiss = { upgradeId = null }, onConfirm = { surcharge ->
                 val current = state.tickets.find { it.id == upgradeTicket.id }
                 val changed = current?.upgradedTicket(surcharge, System.currentTimeMillis())
@@ -205,6 +226,8 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                 },
             ) { padding ->
                 Box(Modifier.fillMaxSize().padding(padding)) {
+                    if (upgradeId != null) Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars)
+                        .background(Color.White).align(Alignment.TopCenter).then(Modifier.zIndex(2f)))
                     when (page) {
                         "About" -> AboutPage(onBack = { back() }, onSocial = { openExternal(railwaySocialIntent(it)) },
                             onMail = { openExternal(railwayMailIntent()) }, onCall = { openExternal(railwayCallIntent()) },
@@ -263,7 +286,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                                         countdownEndsAt = time + TICKET_COUNTDOWN_SECONDS * 1000L,
                                         accentIndex = ACCENT_COLORS.indices.random(), ownerUserId = store.userId, ownerUsername = state.profile.username.trim())
                                     if (persist(state.copy(tickets = state.tickets + ticket))) {
-                                        selectedId = ticket.id; templateId = null; editorReturnTicketId = null; page = "Ticket"; returnTab = "My Bookings"
+                                        selectedId = ticket.id; templateId = null; editorReturnTicketId = null; page = "Ticket"; returnTab = "My Bookings"; previewExpiryTab = "Home"
                                         setDraft(freshDraft())
                                     }
                                 }
@@ -304,8 +327,8 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                                 filter = bookingsFilter, newestFirst = bookingsNewestFirst,
                                 onFilter = { bookingsFilter = it }, onSort = { bookingsSortOpen = true }, onNew = { edit(freshDraft()) },
                                 onView = { openTicket(it) }, onRepeat = { edit(renewedDraft(it.data)) },
-                                onCancel = { confirm = "cancel" to it.id }, onRefresh = { refreshData() }, onBack = { tab = "Home" },
-                                onDelete = { confirm = "ticket" to it.id }, sortBy = bookingsSortBy)
+                                onCancel = { confirm = "cancel" to it.id }, onRefresh = { refreshBookings() }, onBack = { tab = "Home" },
+                                onDelete = { confirm = "ticket" to it.id }, sortBy = bookingsSortBy, refreshing = bookingsRefreshing)
                             "You" -> ProfilePage(state, othersVisible = othersVisible, onRefreshPassengers = { refreshData() }, onBack = { tab = "Home" },
                                 onPhoto = { if (!photoBusy) runCatching { photoPicker.launch("image/*") }.onFailure { notify("No image picker available") } },
                                 onRemovePhoto = {

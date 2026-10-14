@@ -294,8 +294,8 @@ private fun HomeJourneyCard(ticket: StoredTicket, onView: (StoredTicket) -> Unit
                 modifier = Modifier.height(24.dp), contentPadding = PaddingValues(0.dp)) {
                 // Paint inside the visual Surface, not its expanded minimum touch target.
                 Box(Modifier.height(24.dp).background(Brush.horizontalGradient(listOf(Color(0xFF9370BF), Color(0xFF514398))), CircleShape)
-                    .padding(horizontal = 9.dp), contentAlignment = Alignment.Center) {
-                    Text("Book Again", color = Color.White, fontSize = 10.sp, lineHeight = 12.sp)
+                    .padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                    Text("Book Again", color = Color.White, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Normal)
                 }
             }
             OutlinedButton(onClick = { onView(ticket) }, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
@@ -303,8 +303,8 @@ private fun HomeJourneyCard(ticket: StoredTicket, onView: (StoredTicket) -> Unit
                 modifier = Modifier.height(24.dp), contentPadding = PaddingValues(0.dp)) {
                 // Paint inside the visual Surface, not its expanded minimum touch target.
                 Box(Modifier.height(24.dp).background(Brush.horizontalGradient(listOf(Color(0xFF9370BF), Color(0xFF514398))), CircleShape)
-                    .padding(horizontal = 9.dp), contentAlignment = Alignment.Center) {
-                    Text("View Details", color = Color.White, fontSize = 10.sp, lineHeight = 12.sp)
+                    .padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                    Text("View Details", color = Color.White, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Normal)
                 }
             }
         }
@@ -450,22 +450,29 @@ internal fun sortedBookings(tickets: List<StoredTicket>, newestFirst: Boolean, s
 internal fun BookingsPage(tickets: List<StoredTicket>, now: Long, filter: String, newestFirst: Boolean,
     onFilter: (String) -> Unit, onSort: () -> Unit, onNew: () -> Unit,
     onView: (StoredTicket) -> Unit, onRepeat: (StoredTicket) -> Unit, onCancel: (StoredTicket) -> Unit, onRefresh: () -> Unit, onBack: () -> Unit,
-    onDelete: (StoredTicket) -> Unit = {}, sortBy: String = "Booking Date") {
+    onDelete: (StoredTicket) -> Unit = {}, sortBy: String = "Booking Date", refreshing: Boolean = false) {
     val matching = tickets.filter { if (filter == "All") it.status(now) in listOf("Upcoming", "Completed") else it.status(now) == filter }
     val sorted = sortedBookings(matching, newestFirst, sortBy)
+    val firstGroup = if (filter == "All") listOf("Upcoming", "Completed").firstOrNull { status -> sorted.any { it.status(now) == status } } else filter
     Column(Modifier.fillMaxSize().background(Color.White)) {
         Row(Modifier.fillMaxWidth().background(Blue).statusBarsPadding().height(68.dp).padding(horizontal = 13.dp), verticalAlignment = Alignment.CenterVertically) {
             CircleBack(onBack, true)
             Text("My Bookings", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f).padding(start = 18.dp))
             IconButton(onClick = onSort) { Picture(R.drawable.booking_sort, "Sort & Filters", Modifier.size(24.dp)) }
         }
-        if (sorted.isNotEmpty() && filter != "All") Row(Modifier.fillMaxWidth().height(42.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().height(42.dp), verticalAlignment = Alignment.CenterVertically) {
             Spacer(Modifier.width(42.dp))
-            Text("$filter (${matching.size})", color = bookingColour(filter), fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
-            IconButton(onClick = onRefresh) { Icon(Icons.Default.Sync, "Refresh bookings", tint = Muted, modifier = Modifier.size(21.dp)) }
+            val count = sorted.count { it.status(now) == firstGroup || filter != "All" }
+            if (count > 0 && !refreshing) Text("$firstGroup ($count)", color = bookingColour(firstGroup ?: filter), fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center, modifier = Modifier.weight(1f)) else Spacer(Modifier.weight(1f))
+            IconButton(onClick = onRefresh, enabled = !refreshing) { Icon(Icons.Default.Sync, "Refresh bookings", tint = Muted, modifier = Modifier.size(21.dp)) }
         }
         PullToRefreshBox(isRefreshing = false, onRefresh = onRefresh, modifier = Modifier.weight(1f).fillMaxWidth()) {
-            if (sorted.isEmpty()) Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.Center) {
+            if (refreshing) Box(Modifier.fillMaxSize().testTag("bookings-refresh"), contentAlignment = Alignment.TopCenter) {
+                Surface(Modifier.padding(top = 8.dp).size(42.dp), shape = CircleShape, color = Color(0xFFFCF7FF), shadowElevation = 3.dp) {
+                    Box(contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(19.dp), color = Color(0xFF7250A0), strokeWidth = 2.dp) }
+                }
+            } else if (sorted.isEmpty()) Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.Center) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Picture(R.drawable.booking_empty, null, Modifier.width(90.dp).height(60.dp))
                     Spacer(Modifier.height(18.dp))
@@ -476,13 +483,9 @@ internal fun BookingsPage(tickets: List<StoredTicket>, now: Long, filter: String
                     listOf("Upcoming", "Completed").forEach { status ->
                         val group = sorted.filter { it.status(now) == status }
                         if (group.isNotEmpty()) {
-                            item(key = "heading-$status") {
-                                Row(Modifier.fillMaxWidth().height(42.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Spacer(Modifier.width(42.dp))
-                                    Text("$status (${group.size})", color = bookingColour(status), fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
-                                    IconButton(onClick = onRefresh) { Icon(Icons.Default.Sync, "Refresh $status bookings", tint = Muted, modifier = Modifier.size(21.dp)) }
-                                }
+                            if (status != firstGroup) item(key = "heading-$status") {
+                                Text("$status (${group.size})", color = bookingColour(status), fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().height(42.dp).padding(top = 10.dp))
                             }
                             items(group, key = { it.id }) { BookingCard(it, now, onView, onRepeat, onCancel, onDelete) }
                         }

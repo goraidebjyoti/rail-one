@@ -526,7 +526,7 @@ class NavigationTest {
         val ticket = first.copy(data = first.data.copy(trainType = "MAIL/EXPRESS", fare = "60.00", validTill = "31/12/2099 23:59"))
         val route = SavedRoute(origin = ticket.data.origin, destination = ticket.data.destination, via = ticket.data.via,
             distance = "116", fares = mapOf("MAIL/EXPRESS" to "60", "SUPERFAST" to "75"))
-        JourneyStore(context).save(JourneyState(tickets = listOf(ticket), routes = listOf(route), showServices = false,
+        JourneyStore(context).save(JourneyState(tickets = listOf(ticket), routes = listOf(route), stations = listOf(Station("HOWRAH", "HWH"), Station("KHARAGPUR", "KGP")), showServices = false,
             profile = UserProfile("Traveller", "9876543210", username = "traveller")))
         launchHome()
         compose.onNodeWithTag("upcoming-journeys").performScrollTo()
@@ -543,6 +543,8 @@ class NavigationTest {
         compose.onNodeWithText("Ticket Summary").assertIsDisplayed()
         compose.onNodeWithText("₹15.00", substring = false).assertIsDisplayed()
         compose.onNodeWithText("Total Fare", substring = false).assertIsDisplayed()
+        compose.onNodeWithText("HWH", substring = false).assertIsDisplayed()
+        compose.onNodeWithText("KGP", substring = false).assertIsDisplayed()
         compose.onNodeWithText("1 Passenger", substring = false).assertIsDisplayed()
         compose.onNodeWithText("Updated ticket fare:", substring = true).assertDoesNotExist()
         compose.onNodeWithContentDescription("Edit surcharge").performClick()
@@ -555,6 +557,65 @@ class NavigationTest {
         org.junit.Assert.assertEquals("77.50", saved.data.fare)
         org.junit.Assert.assertEquals(ticket.data.bookedOn, saved.data.bookedOn)
         org.junit.Assert.assertEquals(ticket.data.validTill, saved.data.validTill)
+    }
+
+    private fun expirePreviewAndRecreate(id: String) {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = JourneyStore(context)
+        val state = store.load()
+        store.save(state.copy(tickets = state.tickets.map { if (it.id == id) it.copy(countdownEndsAt = System.currentTimeMillis() - 1) else it }))
+        scenario.recreate()
+    }
+    @Test fun countdownExpiryReturnsToHomeWithoutDeletingTicket() {
+        compose.onNodeWithTag("upcoming-journeys").performScrollTo()
+        compose.onNode(hasText("View Details") and hasAnyAncestor(hasTestTag("home-ticket-${first.id}"))).performClick()
+        expirePreviewAndRecreate(first.id)
+        compose.waitUntil(timeoutMillis = 8_000) { compose.onAllNodesWithTag("home-content").fetchSemanticsNodes().isNotEmpty() }
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        org.junit.Assert.assertEquals(2, JourneyStore(context).load().tickets.size)
+    }
+    @Test fun countdownExpiryReturnsToAllFilterAndAllHasOnlyOneRefreshControl() {
+        scenario.close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = JourneyStore(context)
+        val state = store.load()
+        store.save(state.copy(tickets = listOf(first, second.copy(data = second.data.copy(bookedOn = "01/01/2020 10:00")))))
+        launchHome()
+        compose.onNodeWithText("My Bookings").performClick()
+        compose.onNodeWithContentDescription("All, 2 tickets").performClick()
+        compose.onAllNodesWithContentDescription("Refresh bookings").assertCountEquals(1)
+        compose.onNode(hasText("View Details") and hasAnyAncestor(hasTestTag("booking-ticket-${first.id}"))).performClick()
+        expirePreviewAndRecreate(first.id)
+        compose.waitUntil(timeoutMillis = 8_000) { compose.onAllNodesWithTag("bookings-list").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Upcoming (1)").assertIsDisplayed()
+        compose.onNodeWithTag("bookings-list").performScrollToNode(hasText("Completed (1)"))
+        compose.onNodeWithText("Completed (1)").assertIsDisplayed()
+        compose.onAllNodesWithContentDescription("Refresh bookings").assertCountEquals(1)
+        compose.onNodeWithContentDescription("Refresh bookings").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Saved data refreshed").assertDoesNotExist()
+        compose.onNodeWithTag("bookings-list").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Upcoming, 1 tickets").performClick()
+        compose.onNode(hasText("View Details") and hasAnyAncestor(hasTestTag("booking-ticket-${first.id}"))).performClick()
+        expirePreviewAndRecreate(first.id)
+        compose.waitUntil(timeoutMillis = 8_000) { compose.onAllNodesWithTag("bookings-list").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Upcoming (1)").assertIsDisplayed()
+        compose.onNodeWithText("Completed (1)").assertDoesNotExist()
+    }
+    @Test fun ordinaryDetailsHideBookAgainAndNewTicketCountdownReturnsHome() {
+        compose.onNodeWithContentDescription("New Ticket").performClick()
+        compose.onNode(hasSetTextAction() and hasText("From Station")).performScrollTo().performTextInput("HOWRAH")
+        compose.onNode(hasSetTextAction() and hasText("To Station")).performScrollTo().performTextInput("KHARAGPUR")
+        compose.onNode(hasSetTextAction() and hasText("Distance (km)")).performScrollTo().performTextInput("116")
+        compose.onNode(hasSetTextAction() and hasText("Fare (₹)")).performScrollTo().performTextInput("30")
+        compose.onNodeWithText("BOOK TICKET", substring = false).performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Book Again", substring = false).assertDoesNotExist()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val created = JourneyStore(context).load().tickets.last()
+        expirePreviewAndRecreate(created.id)
+        compose.waitUntil(timeoutMillis = 8_000) { compose.onAllNodesWithTag("home-content").fetchSemanticsNodes().isNotEmpty() }
+        org.junit.Assert.assertEquals(3, JourneyStore(context).load().tickets.size)
     }
 
 }
