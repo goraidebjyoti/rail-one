@@ -175,3 +175,7 @@ Stacked From/To fields with opposite-facing train icons and a vertical swap cont
 ## October 14 ticket timing and upgrades
 
 Corrected the clarified rules: all fresh/renewed drafts default to one-hour Valid Till; Journey completion remains twelve hours, while Ordinary Return completion is next-day 23:59 with Sunday-to-Monday extension. Stored validity is not migrated. Added mint accents, held ticket summary/haptics, a Superfast surcharge sheet and atomic ticket update, a left-aligned multi-ticket home carousel without counters/View All, button gradients, and a persistent five-tap Others toggle. Added four timing/fare model tests and two UI regressions for toggle persistence, held summary and in-place upgrade; adjusted carousel tests and explicitly enabled Others in existing fixture setup. Total: 89 instrumentation tests included, not executed locally. Kotlin syntax, ticket serialization, XML and workflow checks pass. Android SDK/Gradle/emulator are unavailable here; build, native haptics, sheet animation and device visuals remain unverified.
+
+## Behavior-test compilation fix
+
+The supplied CI log confirms assembleDebug succeeded. Test APK compilation failed at NavigationTest.kt because Espresso was not present in the dependency set. Replaced Espresso.pressBack() with InstrumentationRegistry's sendKeyDownUpSync(KEYCODE_BACK), followed by Compose idle synchronization; no dependency changes or production changes. Static checks pass with 89 tests included. The corrected test APK and emulator suite have not been compiled/run locally.

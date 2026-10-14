@@ -534,7 +534,9 @@ class NavigationTest {
         compose.onNodeWithText(ticket.data.journeyTicket).performScrollTo().performTouchInput { longClick() }
         compose.onNodeWithText("31/12/2099 23:59").assertIsDisplayed()
         compose.onNode(isDialog()).assertExists()
-        androidx.test.espresso.Espresso.pressBack()
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            .sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        compose.waitForIdle()
         compose.onNodeWithText("Upgrade to Superfast").performScrollTo().performClick()
         compose.onNodeWithText("Ticket Summary").assertIsDisplayed()
         compose.onNodeWithText("₹15.00", substring = false).assertIsDisplayed()
