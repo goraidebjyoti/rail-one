@@ -203,3 +203,11 @@ The supplied CI log compiled both APKs and ran 92 tests: 91 passed; countdownExp
 ## Neon turquoise accent
 
 Brightened the fourth accent from muted #75D1BB to neon turquoise #38E8C4, shared by ticket top/bottom bands. Accent indices and stored data are unchanged. Static checks pass; actual display colour remains unverified locally.
+
+## Refresh duration and timer optical alignment
+
+Doubled the explicit quiet-refresh pause from 20 to 40 ms (in addition to the render frame/storage read). Replaced the font colon with two dots centered in the same 64 dp slot as the animated digits, avoiding the colon glyph's low optical centre. Moved the booking-date/service/non-transferable information block upward by 2 dp without changing countdown or ticket completion behavior. Static checks pass; no device pixel-verification was performed here.
+
+## Upgrade confirmation test and keyboard correction
+
+The supplied CI run passed 91/92 tests, including the previously failing countdown/All regression. Upgrade test read MAIL/EXPRESS after its coordinate tap following surcharge editing. The synchronous save path rules out an intended background-save delay; an IME/scroll positioning race is a likely cause, not proven by the abbreviated log. Added a Done action to the surcharge editor that clears focus and hides the keyboard; confirmation also clears focus. The regression verifies edited text, performs Done, scrolls/checks the enabled visible button, invokes its semantics click action and waits for the summary to close before reading committed storage. All ID/type/fare/booking-time/validity assertions remain. Static checks pass; no local Android build or rerun was available.

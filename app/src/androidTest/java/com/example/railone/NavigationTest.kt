@@ -548,8 +548,16 @@ class NavigationTest {
         compose.onNodeWithText("1 Passenger", substring = false).assertIsDisplayed()
         compose.onNodeWithText("Updated ticket fare:", substring = true).assertDoesNotExist()
         compose.onNodeWithContentDescription("Edit surcharge").performClick()
-        compose.onNode(hasSetTextAction() and hasText("Surcharge (₹)")).performTextReplacement("17.50")
-        compose.onNode(hasText("Book Now") and hasAnyAncestor(isDialog())).performScrollTo().performClick()
+        val surchargeField = compose.onNode(hasSetTextAction() and hasText("Surcharge (₹)"))
+        surchargeField.performTextReplacement("17.50")
+        surchargeField.assertTextContains("17.50")
+        surchargeField.performImeAction()
+        compose.waitForIdle()
+        compose.onNode(hasText("Book Now") and hasAnyAncestor(isDialog())).performScrollTo()
+            .assertIsDisplayed().assertIsEnabled().performSemanticsAction(SemanticsActions.OnClick) { click -> click() }
+        compose.waitUntil(timeoutMillis = 8_000) {
+            compose.onAllNodesWithText("Ticket Summary", substring = false).fetchSemanticsNodes().isEmpty()
+        }
         compose.waitForIdle()
         val saved = JourneyStore(context).load().tickets.single()
         org.junit.Assert.assertEquals(ticket.id, saved.id)

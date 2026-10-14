@@ -44,6 +44,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.rotate
@@ -853,19 +855,21 @@ internal fun DynamicTicket(data: TicketData, secondsLeft: Int, accent: Color) {
                 Spacer(Modifier.height(1.dp))
                 FallingCountdown(secondsLeft)
                 Spacer(Modifier.height(0.dp))
-                Text("Ticket Booking Date & Time", color = BookingGrey, fontSize = 13.sp)
-                Spacer(Modifier.height(1.dp))
-                Text(
-                    data.bookingDateTime,
-                    color = DateOrange,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(data.serviceNo, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                Spacer(Modifier.height(2.dp))
-                Text("Ticket is Non-Transferable", color = Color.White, fontSize = 13.sp)
+                Column(Modifier.offset(y = (-2).dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Ticket Booking Date & Time", color = BookingGrey, fontSize = 13.sp)
+                    Spacer(Modifier.height(1.dp))
+                    Text(
+                        data.bookingDateTime,
+                        color = DateOrange,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(data.serviceNo, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.height(2.dp))
+                    Text("Ticket is Non-Transferable", color = Color.White, fontSize = 13.sp)
+                }
             }
             RailwaySideBrand("भारतीय रेल", drawDividerOnRight = false, textSizeSp = 21.5f)
         }
@@ -889,7 +893,13 @@ internal fun FallingCountdown(secondsLeft: Int) {
     val seconds = (secondsLeft % 60).coerceAtLeast(0)
     Row(verticalAlignment = Alignment.CenterVertically) {
         FallingDigits("%02d".format(minutes))
-        CountdownText(":")
+        // Centre the dots optically; the font's colon glyph sits below the digit centre.
+        Canvas(Modifier.width(9.dp).height(64.dp).semantics { contentDescription = ":" }) {
+            val radius = 3.4.dp.toPx()
+            val gap = 8.dp.toPx()
+            drawCircle(RedOrange, radius, Offset(size.width / 2f, size.height / 2f - gap))
+            drawCircle(RedOrange, radius, Offset(size.width / 2f, size.height / 2f + gap))
+        }
         FallingDigits("%02d".format(seconds))
     }
 }

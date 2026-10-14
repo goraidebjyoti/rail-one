@@ -37,6 +37,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -123,6 +127,8 @@ internal fun HeldTicketSummary(data: TicketData, status: String, onDismiss: () -
 
 @Composable
 internal fun UpgradeTicketSheet(ticket: StoredTicket, routes: List<SavedRoute>, onDismiss: () -> Unit, onConfirm: (String) -> String?, stations: List<Station> = emptyList()) {
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     val suggested = remember(ticket.id, routes) { upgradeSurcharge(ticket.data, routes) }
     var surcharge by rememberSaveable(ticket.id) { mutableStateOf(suggested.orEmpty()) }
     var editing by rememberSaveable(ticket.id) { mutableStateOf(false) }
@@ -195,11 +201,12 @@ internal fun UpgradeTicketSheet(ticket: StoredTicket, routes: List<SavedRoute>, 
                         }
                     }
                     if (editing || suggested == null) {
-                        OutlinedTextField(surcharge, { surcharge = it; error = null }, label = { Text("Surcharge (₹)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
+                        OutlinedTextField(surcharge, { surcharge = it; error = null }, label = { Text("Surcharge (₹)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(); keyboard?.hide() }), singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
                     }
                     if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
                     Spacer(Modifier.height(26.dp))
-                    Button(onClick = { error = onConfirm(surcharge) }, enabled = total != null, shape = CircleShape,
+                    Button(onClick = { focusManager.clearFocus(); keyboard?.hide(); error = onConfirm(surcharge) }, enabled = total != null, shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0166FF)), modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Book Now", fontSize = 18.sp, fontWeight = FontWeight.Normal) }
                     Spacer(Modifier.height(24.dp))
                 }
