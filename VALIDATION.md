@@ -183,3 +183,7 @@ The supplied CI log confirms assembleDebug succeeded. Test APK compilation faile
 ## Book Again validity assertion correction
 
 The supplied CI run compiled both APKs and ran all 89 tests: 88 passed; bookAgainRefreshesTimesAndRemovesReference retained an obsolete three-hour assertion. Changed that assertion to one hour, matching the requested Valid Till behavior. Searched the Android tests for other three-hour assertions and found none. Production code is unchanged. Static checks pass; the corrected suite has not been rerun locally.
+
+## Home action gradient containment
+
+The supplied device screenshot showed gradient spill caused by a background on OutlinedButton's outer modifier: it painted the expanded minimum interactive area rather than the 24 dp visual Surface. Moved the gradient to a 24 dp child inside the button Surface, with zero button content padding and internal horizontal text padding. The white capsule border, button actions and minimum touch target remain intact. Static checks pass. Device rendering of the correction has not been verified locally.

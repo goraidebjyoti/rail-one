@@ -290,12 +290,22 @@ private fun HomeJourneyCard(ticket: StoredTicket, onView: (StoredTicket) -> Unit
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Unreserved", color = Color(0xFFBCEDBC), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             OutlinedButton(onClick = { onRepeat(ticket) }, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
-                shape = CircleShape, colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.Transparent), modifier = Modifier.height(24.dp).background(Brush.horizontalGradient(listOf(Color(0xFF9370BF), Color(0xFF514398))), CircleShape), contentPadding = PaddingValues(horizontal = 9.dp)) {
-                Text("Book Again", color = Color.White, fontSize = 10.sp, lineHeight = 12.sp)
+                shape = CircleShape, colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.Transparent),
+                modifier = Modifier.height(24.dp), contentPadding = PaddingValues(0.dp)) {
+                // Paint inside the visual Surface, not its expanded minimum touch target.
+                Box(Modifier.height(24.dp).background(Brush.horizontalGradient(listOf(Color(0xFF9370BF), Color(0xFF514398))), CircleShape)
+                    .padding(horizontal = 9.dp), contentAlignment = Alignment.Center) {
+                    Text("Book Again", color = Color.White, fontSize = 10.sp, lineHeight = 12.sp)
+                }
             }
             OutlinedButton(onClick = { onView(ticket) }, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
-                shape = CircleShape, colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.Transparent), modifier = Modifier.height(24.dp).background(Brush.horizontalGradient(listOf(Color(0xFF9370BF), Color(0xFF514398))), CircleShape), contentPadding = PaddingValues(horizontal = 9.dp)) {
-                Text("View Details", color = Color.White, fontSize = 10.sp, lineHeight = 12.sp)
+                shape = CircleShape, colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.Transparent),
+                modifier = Modifier.height(24.dp), contentPadding = PaddingValues(0.dp)) {
+                // Paint inside the visual Surface, not its expanded minimum touch target.
+                Box(Modifier.height(24.dp).background(Brush.horizontalGradient(listOf(Color(0xFF9370BF), Color(0xFF514398))), CircleShape)
+                    .padding(horizontal = 9.dp), contentAlignment = Alignment.Center) {
+                    Text("View Details", color = Color.White, fontSize = 10.sp, lineHeight = 12.sp)
+                }
             }
         }
     }
