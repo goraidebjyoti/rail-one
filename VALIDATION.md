@@ -199,3 +199,7 @@ Added automatic active-preview dismissal at zero with a saved expiry destination
 ## Countdown/All navigation test synchronization
 
 The supplied CI log compiled both APKs and ran 92 tests: 91 passed; countdownExpiryReturnsToAllFilterAndAllHasOnlyOneRefreshControl failed a visibility assertion without a source line. Corrected synchronization in that test: wait for a displayed bookings viewport and disappearance of the asynchronous refresh indicator, explicitly scroll the Completed heading fully into view, and scroll the target ticket/action before clicking after filter changes. All visibility, filter preservation, refresh-count and no-message assertions remain. Production code is unchanged. Static checks pass; the corrected instrumentation suite has not been rerun locally.
+
+## Neon turquoise accent
+
+Brightened the fourth accent from muted #75D1BB to neon turquoise #38E8C4, shared by ticket top/bottom bands. Accent indices and stored data are unchanged. Static checks pass; actual display colour remains unverified locally.
