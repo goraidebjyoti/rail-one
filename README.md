@@ -6,7 +6,7 @@ A Kotlin / Jetpack Compose Android prototype. All tickets and QR codes are **tic
 
 ## Included
 
-- Home with journey planner, optional service tiles, a swipeable carousel of all upcoming ticket cards, View All, and railway information.
+- Home with journey planner, optional service tiles, a swipeable carousel of all upcoming ticket cards and railway information.
 - My Bookings with independent ticket records, Upcoming / Completed / Cancelled / All filters, counts, and newest/oldest sorting.
 - You with an editable user profile and photo picker, saved passenger management, and editable journey templates.
 - Right-side menu drawer with a persistent service-visibility preference, FAQs, help, About, and Android sharing.
@@ -40,7 +40,7 @@ The fully renamed package is `com.example.railone`, and storage uses `rail_one_p
 
 Malformed stored data blocks normal editing and leaves the data untouched. Save errors do not report success. No cloud account or sync is present; uninstalling or clearing app data removes local content.
 
-The five-minute visual countdown resets whenever a ticket is opened through View Details on Home or My Bookings. Its new expiry is saved; activity recreation continues that countdown. It is separate from Valid Till. Upcoming means fewer than 12 hours have passed since Booked On; Completed starts at Booked On plus 12 hours, irrespective of Valid Till. Cancelled is an explicit local status, with no railway cancellation or refund. Times use the device timezone and clock.
+The five-minute visual countdown resets whenever a ticket is opened through View Details on Home or My Bookings. Its new expiry is saved; activity recreation continues that countdown. It is separate from Valid Till. Journey tickets complete 12 hours after Booked On. Ordinary Return tickets complete at 23:59 the following day, extended to Monday if that day is Sunday. Valid Till defaults to Booked On plus one hour for both. Cancelled is an explicit local status, with no railway cancellation or refund. Times use the device timezone and clock.
 
 Booking drafts, navigation selection and form-dialog inputs use saved instance state for activity recreation and OS-managed process restoration. Closing the app without restored instance state does not guarantee recovery of an unfinished draft. Persisted tickets and templates remain available.
 
@@ -111,7 +111,7 @@ You → View Details opens the reference-style Your Details panel, with the save
 
 Tickets remain saved indefinitely, including completed and cancelled tickets. Delete them manually from My Bookings with a one-second hold and confirmation. No automatic age-based deletion runs.
 
-Home hides the entire Upcoming Journey section (heading, View All and cards) when there are no upcoming tickets. The facts carousel reserves space for the longest caption at the current font scale, so scrolling to Hubballi does not move the social heading or banner.
+Home hides the entire Upcoming Journey section (heading and cards) when there are no upcoming tickets. The facts carousel reserves space for the longest caption at the current font scale, so scrolling to Hubballi does not move the social heading or banner.
 
 The X, Facebook, Instagram and YouTube logos in the social banner each open the Ministry of Railways account in an installed app or browser. Tapping other artwork in the banner does nothing. Unimplemented services and menu actions do nothing when tapped; they no longer show placeholder information dialogs. Ticket creation, bookings, passengers, profile editing, wallet editing, sharing and Show/Hide Services retain their implemented actions.
 
@@ -127,7 +127,7 @@ The mPIN is stored as a salted PBKDF2 verifier, never as plaintext, in separate 
 
 Cards show Unreserved, UTS reference, ticket type, booking date, source, distance in km, destination and the Book Again/View Details actions. They expand to fit text instead of clipping the station row. Upcoming is orange, Completed green, Cancelled red and All blue; cards in All retain their individual status outline.
 
-Tickets become Completed exactly 12 hours after Booked On regardless of Valid Till, and remain saved in Completed until manually deleted. Cancelled remains an explicit status. Empty filters show the grey ticket illustration and "No Tickets Found. Swipe down to refresh." Pulling down refreshes storage.
+Journey tickets become Completed 12 hours after Booked On; Ordinary Return tickets use next-day 23:59 (Monday when the next day is Sunday). Tickets remain saved until manually deleted. Cancelled remains an explicit status. Empty filters show the grey ticket illustration and "No Tickets Found. Swipe down to refresh." Pulling down refreshes storage.
 
 The header's reference sort icon opens Sort & Filters, with Sort By / Filter sections, Journey Date / Booking Date choices and Apply. The Filter section selects Upcoming, Completed, Cancelled or All. Sorting uses the entered timestamp rather than the time the record was saved. For these unreserved tickets the journey date is the booked date, so the two date choices currently produce the same chronological order. The original newest-first ordering is retained.
 
@@ -135,7 +135,7 @@ Saved Journey Templates is now a boxed option with an icon; tap it to expand or 
 
 ## Latest booking and profile changes
 
-- Home shows View All only with two or more upcoming tickets.
+- Home has no View All or numeric page indicator. One card is centred; multiple cards start at the left with a peek of the next card.
 - The unreserved booking form has no Passenger Details section. Book Ticket uses the current profile name and mobile from You. Old tickets keep the contact captured when booked.
 - Booking cards use compact text spacing and stronger coloured dashed separators. Long station names can wrap without clipping.
 - Hold any My Bookings ticket for one second, then confirm deletion. Home has no delete gesture.
@@ -204,3 +204,7 @@ The route swap button reverses stations and Via order. Exact saved reverse paths
 Live booking drafts now use a saveable TicketData state instead of JSON conversion per keystroke; station catalogs are cached and the clock ticker pauses during editing. Draft restoration, discard prompts, saved templates/routes, Booked On/Now, Valid Till, class, IR number and service number are retained. Book Ticket and template buttons use capsule shapes.
 
 82 Android instrumentation tests are included. Static Kotlin/XML/workflow and icon import checks passed; Android compilation, emulator tests, visual rendering and typing responsiveness were not verified locally.
+
+## Ticket summaries, upgrades and hidden Others
+
+Hold the active ticket in Booking Details for a haptic response and a summary with its stored Valid Till. Upcoming Mail/Express tickets offer Upgrade to Superfast. The sheet matches From/To/Via, calculates the adult surcharge from saved fares, and permits editing the total surcharge. Confirming updates the existing ticket without changing its identity, owner, booking time, validity or countdown. Child counts are displayed; saved fares remain one-adult prices. Home action capsules have purple gradients and dynamic tickets gain a fourth mint colour. Five successive You taps (no gap longer than one second) toggle Others; visibility persists across launches without changing saved content.

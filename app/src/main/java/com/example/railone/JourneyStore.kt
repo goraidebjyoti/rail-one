@@ -46,7 +46,7 @@ internal data class StoredTicket(
 ) {
     fun status(now: Long): String = when {
         cancelled -> "Cancelled"
-        now >= (parseBookingTime(data.bookedOn) ?: createdAt) + TICKET_COMPLETION_MILLIS -> "Completed"
+        now >= completionDeadline(data, createdAt) -> "Completed"
         else -> "Upcoming"
     }
     fun secondsLeft(now: Long): Int = ((countdownEndsAt - now + 999) / 1000)
@@ -73,13 +73,13 @@ internal const val TICKET_COMPLETION_MILLIS = 12 * 60 * 60 * 1000L
 internal fun freshDraft(): TicketData {
     val now = currentDateTimeString()
     return TicketData("", "", "", "", "", toTicketDisplayDateTime(now), "", "1", "0", now,
-        addHours(now, 3) ?: now, CLASS_OPTIONS.first(), TRAIN_TYPE_OPTIONS.first(),
+        addHours(now, 1) ?: now, CLASS_OPTIONS.first(), TRAIN_TYPE_OPTIONS.first(),
         TICKET_TYPE_OPTIONS.first(), "", DEFAULT_IR_NO, "", DEFAULT_SERVICE_NO)
 }
 internal fun renewedDraft(data: TicketData): TicketData {
     val now = currentDateTimeString()
     return data.copy(bookedOn = now, bookingDateTime = toTicketDisplayDateTime(now),
-        validTill = addHours(now, 3) ?: now, journeyTicket = "")
+        validTill = addHours(now, 1) ?: now, journeyTicket = "")
 }
 internal fun draftFromTemplate(j: SavedJourney): TicketData = freshDraft().copy(
     passengerName = j.passengerName, mobile = j.mobile, origin = j.origin, distance = j.distance,

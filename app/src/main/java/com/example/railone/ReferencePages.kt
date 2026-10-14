@@ -183,7 +183,6 @@ internal fun HomePage(state: JourneyState, now: Long, onNew: () -> Unit, onBooki
                 Spacer(Modifier.height(32.dp))
                 Row(Modifier.padding(horizontal = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                     Heading("Upcoming Journey", Modifier.weight(1f))
-                    if (upcoming.size > 1) Text("View All", fontSize = 11.sp, color = Blue, modifier = Modifier.clickable(onClick = onBookings).padding(vertical = 4.dp))
                 }
                 Spacer(Modifier.height(14.dp))
 
@@ -192,7 +191,7 @@ internal fun HomePage(state: JourneyState, now: Long, onNew: () -> Unit, onBooki
                 val pager = rememberPagerState(pageCount = { upcoming.size })
                 BoxWithConstraints(Modifier.fillMaxWidth()) {
                     HorizontalPager(state = pager, pageSize = PageSize.Fixed((maxWidth - 90.dp).coerceAtLeast(1.dp)),
-                        contentPadding = PaddingValues(horizontal = 45.dp), pageSpacing = 12.dp,
+                        contentPadding = PaddingValues(horizontal = if (upcoming.size == 1) 45.dp else 10.dp), pageSpacing = 12.dp,
                         key = { upcoming[it].id }, modifier = Modifier.fillMaxWidth().testTag("upcoming-journeys")) { page ->
                         val ticket = upcoming[page]
                         Box(Modifier.padding(vertical = 6.dp).testTag("home-ticket-${ticket.id}")) {
@@ -200,9 +199,7 @@ internal fun HomePage(state: JourneyState, now: Long, onNew: () -> Unit, onBooki
                         }
                     }
                 }
-                if (upcoming.size > 1) Text("${pager.currentPage + 1} / ${upcoming.size}",
-                    color = Muted, fontSize = 10.sp, textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+
             }
             item {
                 Spacer(Modifier.height(20.dp))
@@ -293,11 +290,11 @@ private fun HomeJourneyCard(ticket: StoredTicket, onView: (StoredTicket) -> Unit
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Unreserved", color = Color(0xFFBCEDBC), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             OutlinedButton(onClick = { onRepeat(ticket) }, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
-                shape = CircleShape, colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFF514398).copy(alpha = .65f)), modifier = Modifier.height(24.dp), contentPadding = PaddingValues(horizontal = 9.dp)) {
+                shape = CircleShape, colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.Transparent), modifier = Modifier.height(24.dp).background(Brush.horizontalGradient(listOf(Color(0xFF9370BF), Color(0xFF514398))), CircleShape), contentPadding = PaddingValues(horizontal = 9.dp)) {
                 Text("Book Again", color = Color.White, fontSize = 10.sp, lineHeight = 12.sp)
             }
             OutlinedButton(onClick = { onView(ticket) }, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White),
-                shape = CircleShape, colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFF514398).copy(alpha = .65f)), modifier = Modifier.height(24.dp), contentPadding = PaddingValues(horizontal = 9.dp)) {
+                shape = CircleShape, colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.Transparent), modifier = Modifier.height(24.dp).background(Brush.horizontalGradient(listOf(Color(0xFF9370BF), Color(0xFF514398))), CircleShape), contentPadding = PaddingValues(horizontal = 9.dp)) {
                 Text("View Details", color = Color.White, fontSize = 10.sp, lineHeight = 12.sp)
             }
         }
@@ -526,8 +523,9 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
     onUseTemplate: (SavedJourney) -> Unit, onDeleteTemplate: (SavedJourney) -> Unit,
     onPhoto: () -> Unit = {}, onRemovePhoto: () -> Unit = {}, onWalletAdd: () -> Unit = {}, onWalletRefresh: () -> Unit = {}, onAccount: () -> Unit = onProfile,
     loginEnabled: Boolean = false, biometricEnabled: Boolean = false, onLoginSettings: () -> Unit = {}, onBiometricToggle: () -> Unit = {}, onAddRoute: () -> Unit = {}, onUseRoute: (SavedRoute) -> Unit = {},
-    onEditRoute: (SavedRoute) -> Unit = {}, onDeleteRoute: (SavedRoute) -> Unit = {}, onSwitchUser: () -> Unit = {}, onSaveStation: (Station) -> String? = { null }) {
+    onEditRoute: (SavedRoute) -> Unit = {}, onDeleteRoute: (SavedRoute) -> Unit = {}, onSwitchUser: () -> Unit = {}, onSaveStation: (Station) -> String? = { null }, othersVisible: Boolean = false) {
     var section by rememberSaveable { mutableStateOf("Profile") }
+    LaunchedEffect(othersVisible) { if (!othersVisible) section = "Profile" }
     androidx.activity.compose.BackHandler(enabled = section != "Profile") {
         section = if (section == "Others") "Profile" else "Others"
     }
@@ -632,7 +630,7 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
                 }
             }
         }
-        item {
+        if (othersVisible) item {
             Row(Modifier.padding(horizontal = 17.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 Column(Modifier.weight(1f).height(100.dp).background(PaleViolet, RoundedCornerShape(10.dp))
                     .clickable { section = "Others" }.padding(top = 14.dp, bottom = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) {

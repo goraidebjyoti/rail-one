@@ -49,6 +49,11 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
     val store = remember { JourneyStore(context) }
     val loaded = remember { runCatching { store.load() } }
     var state by remember { mutableStateOf(loaded.getOrDefault(JourneyState())) }
+    val uiPrefs = remember { context.getSharedPreferences("rail_one_ui", android.content.Context.MODE_PRIVATE) }
+    var othersVisible by remember { mutableStateOf(uiPrefs.getBoolean("others_visible", false)) }
+    var youTapCount by remember { mutableStateOf(0) }
+    var lastYouTap by remember { mutableStateOf(0L) }
+    var upgradeId by rememberSaveable { mutableStateOf<String?>(null) }
     var menuOpen by rememberSaveable { mutableStateOf(false) }
     var tab by rememberSaveable { mutableStateOf("Home") }
     var page by rememberSaveable { mutableStateOf("Main") }
@@ -158,6 +163,16 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
         if (page != "Main") requestBack() else tab = "Home"
     }
     MaterialTheme(colorScheme = lightColorScheme(primary = AppBlue, background = Color.White)) {
+        val upgradeTicket = state.tickets.find { it.id == upgradeId }
+        if (upgradeTicket != null) UpgradeTicketSheet(upgradeTicket, state.routes,
+            onDismiss = { upgradeId = null }, onConfirm = { surcharge ->
+                val current = state.tickets.find { it.id == upgradeTicket.id }
+                val changed = current?.upgradedTicket(surcharge, System.currentTimeMillis())
+                if (changed == null) "This ticket cannot be upgraded. Check the amount and ticket status."
+                else if (persist(state.copy(tickets = state.tickets.map { if (it.id == changed.id) changed else it }))) {
+                    upgradeId = null; null
+                } else "Could not save the upgrade. Please retry."
+            })
         if (loaded.isFailure) {
             Surface(Modifier.fillMaxSize()) {
                 Column(Modifier.safeDrawingPadding().padding(24.dp), verticalArrangement = Arrangement.Center) {
@@ -174,6 +189,16 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                     if (page == "Main") {
                         if (tab == "My Bookings") ReferenceBookingFilters(state.tickets, now, bookingsFilter) { bookingsFilter = it }
                         else ReferenceBottomBar(tab) { name ->
+                            if (name == "You") {
+                                val tapTime = android.os.SystemClock.elapsedRealtime()
+                                youTapCount = if (tapTime - lastYouTap <= 1000L) youTapCount + 1 else 1
+                                lastYouTap = tapTime
+                                if (youTapCount == 5) {
+                                    othersVisible = !othersVisible
+                                    uiPrefs.edit().putBoolean("others_visible", othersVisible).apply()
+                                    youTapCount = 0
+                                }
+                            } else { youTapCount = 0; lastYouTap = 0L }
                             if (name == "Menu") menuOpen = true else tab = name
                         }
                     }
@@ -197,12 +222,12 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                             setAdults = { setDraft(draft.withPassengerCount(it, adult = true, routes = state.routes)) },
                             setChildren = { setDraft(draft.withPassengerCount(it, adult = false, routes = state.routes)) },
                             setBookedOn = { setDraft(draft.copy(bookedOn = it, bookingDateTime = toTicketDisplayDateTime(it),
-                                validTill = addHours(it, 3) ?: draft.validTill)) },
+                                validTill = addHours(it, 1) ?: draft.validTill)) },
                             setValidTill = { setDraft(draft.copy(validTill = it)) },
                             resetBookedOnToNow = { setDraft(renewedDraft(draft)) },
                             setClassName = { setDraft(draft.copy(className = it)) },
-                            setTrainType = { setDraft(draft.withTrainTypeFare(it, state.routes)) },
-                            setTicketType = { setDraft(draft.withTicketTypeFare(it, state.routes)) },
+                            setTrainType = { setDraft(draft.withTrainTypeFare(it, state.routes).copy(validTill = addHours(draft.bookedOn, 1) ?: draft.validTill)) },
+                            setTicketType = { setDraft(draft.withTicketTypeFare(it, state.routes).copy(validTill = addHours(draft.bookedOn, 1) ?: draft.validTill)) },
                             setFare = { setDraft(draft.copy(fare = sanitizeFareInput(it))) },
                             onFareFocusLost = {
                                 if (draft.fare.isNotBlank()) setDraft(draft.copy(fare = formatFare(draft.fare)))
@@ -265,7 +290,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                                 edit(freshDraft().copy(passengerName = selected.data.passengerName,
                                     mobile = selected.data.mobile, adults = selected.data.adults,
                                     children = selected.data.children, origin = selected.data.destination))
-                            }) else Column(Modifier.safeDrawingPadding().padding(20.dp)) {
+                            }, onRepeat = { edit(renewedDraft(selected.data)) }, onUpgrade = { upgradeId = selected.id }) else Column(Modifier.safeDrawingPadding().padding(20.dp)) {
                                 Text("Ticket unavailable"); Button(onClick = { back() }) { Text("Back to bookings") }
                             }
                         else -> when (tab) {
@@ -281,7 +306,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                                 onView = { openTicket(it) }, onRepeat = { edit(renewedDraft(it.data)) },
                                 onCancel = { confirm = "cancel" to it.id }, onRefresh = { refreshData() }, onBack = { tab = "Home" },
                                 onDelete = { confirm = "ticket" to it.id }, sortBy = bookingsSortBy)
-                            "You" -> ProfilePage(state, onRefreshPassengers = { refreshData() }, onBack = { tab = "Home" },
+                            "You" -> ProfilePage(state, othersVisible = othersVisible, onRefreshPassengers = { refreshData() }, onBack = { tab = "Home" },
                                 onPhoto = { if (!photoBusy) runCatching { photoPicker.launch("image/*") }.onFailure { notify("No image picker available") } },
                                 onRemovePhoto = {
                                     if (!photoBusy) {

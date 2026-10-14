@@ -39,6 +39,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.rotate
@@ -226,7 +228,7 @@ internal val DateOrange = Color(0xFFFFA21A)
 internal val AccentBlue = Color(0xFF67CDE6)
 internal val AccentGreen = Color(0xFFA4D67E)
 internal val AccentViolet = Color(0xFFB8A0F0)
-internal val ACCENT_COLORS = listOf(AccentBlue, AccentGreen, AccentViolet)
+internal val ACCENT_COLORS = listOf(AccentBlue, AccentGreen, AccentViolet, Color(0xFF75D1BB))
 internal const val TICKET_COUNTDOWN_SECONDS = 300
 internal val RailwayGrey = Color(0xFF9A9AA5)
 internal val BookingGrey = Color(0xFFB9BAC1)
@@ -427,7 +429,7 @@ internal fun InputScreen(
 
             SectionCard(title = "Booking Time") {
                 Text(
-                    "Defaults to your device's current date & time. Valid Till auto-fills 3 hours later — both stay editable.",
+                    "Defaults to your device's current date & time. Valid Till auto-fills 1 hour later — both stay editable.",
                     fontSize = 11.sp,
                     color = Color(0xFF7A7B84)
                 )
@@ -629,7 +631,10 @@ internal fun BookingHeader(onBack: () -> Unit, mobile: String? = null, onInvoice
 }
 
 @Composable
-internal fun TicketScreen(data: TicketData, secondsLeft: Int, accent: Color, onBack: () -> Unit, status: String, onConnecting: () -> Unit) {
+internal fun TicketScreen(data: TicketData, secondsLeft: Int, accent: Color, onBack: () -> Unit, status: String, onConnecting: () -> Unit, onRepeat: () -> Unit = {}, onUpgrade: () -> Unit = {}) {
+    var summaryOpen by remember { mutableStateOf(false) }
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    if (summaryOpen) HeldTicketSummary(data, status) { summaryOpen = false }
     val qrPayload = "Status=$status\n" + buildQrPayload(data)
     val qrBitmap = remember(qrPayload) { generateQrBitmap(qrPayload, 560) }
 
@@ -662,8 +667,15 @@ internal fun TicketScreen(data: TicketData, secondsLeft: Int, accent: Color, onB
         }
 
         Column(Modifier.padding(horizontal = 14.dp, vertical = 14.dp)) {
-            DynamicTicket(data, secondsLeft, accent)
-            TicketBody(data, accent)
+            Column(Modifier.pointerInput(data) {
+                detectTapGestures(onLongPress = {
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    summaryOpen = true
+                })
+            }) {
+                DynamicTicket(data, secondsLeft, accent)
+                TicketBody(data, accent)
+            }
 
             // The refund note is a separate element, outside the journey-ticket card.
             Spacer(Modifier.height(14.dp))
@@ -681,6 +693,11 @@ internal fun TicketScreen(data: TicketData, secondsLeft: Int, accent: Color, onB
                 )
             ) {
                 Text("Book Connecting Journey", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (status == "Upcoming" && data.trainType == "MAIL/EXPRESS") Button(onClick = onUpgrade,
+                    modifier = Modifier.weight(1f), shape = CircleShape) { Text("Upgrade to Superfast", fontSize = 12.sp) }
+                Button(onClick = onRepeat, modifier = Modifier.weight(1f), shape = CircleShape) { Text("Book Again") }
             }
         }
 

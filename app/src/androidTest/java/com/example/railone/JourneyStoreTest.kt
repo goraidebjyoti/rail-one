@@ -492,4 +492,52 @@ class JourneyStoreTest {
         assertEquals("", draft.copy(via = "UNSAVED").swappedRoute(routes).fare)
     }
 
+    @Test fun returnCompletionUsesNextDayAndSundayExtensionWhileValidityStaysIndependent() {
+        val returnTicket = StoredTicket(data = validDraft().copy(trainType = "ORDINARY", ticketType = "RETURN",
+            bookedOn = "09/10/2026 10:00", validTill = "09/10/2026 11:00"), createdAt = testNow, countdownEndsAt = testNow, accentIndex = 0)
+        val saturday = parseBookingTime("10/10/2026 23:59")!!
+        assertEquals(saturday, completionDeadline(returnTicket.data, testNow))
+        assertEquals("Upcoming", returnTicket.status(saturday - 1))
+        assertEquals("Completed", returnTicket.status(saturday))
+        val saturdayBooked = returnTicket.copy(data = returnTicket.data.copy(bookedOn = "10/10/2026 10:00"))
+        val monday = parseBookingTime("12/10/2026 23:59")!!
+        assertEquals(monday, completionDeadline(saturdayBooked.data, testNow))
+        assertEquals("Upcoming", saturdayBooked.status(parseBookingTime("11/10/2026 23:59")!!))
+        assertEquals("Completed", saturdayBooked.status(monday))
+        assertEquals("09/10/2026 11:00", returnTicket.data.validTill)
+    }
+    @Test fun journeyCompletesAfterTwelveHoursAndNewDraftValidityIsOneHour() {
+        val draft = freshDraft()
+        assertEquals(60 * 60 * 1000L, parseBookingTime(draft.validTill)!! - parseBookingTime(draft.bookedOn)!!)
+        val renewed = renewedDraft(validDraft())
+        assertEquals(60 * 60 * 1000L, parseBookingTime(renewed.validTill)!! - parseBookingTime(renewed.bookedOn)!!)
+        val ticket = StoredTicket(data = validDraft().copy(validTill = "31/12/2099 23:59"), createdAt = testNow, countdownEndsAt = testNow, accentIndex = 0)
+        val deadline = parseBookingTime(ticket.data.bookedOn)!! + TICKET_COMPLETION_MILLIS
+        assertEquals("Upcoming", ticket.status(deadline - 1)); assertEquals("Completed", ticket.status(deadline))
+    }
+    @Test fun upgradeSurchargeMatchesViaAndAdultCountAndPreservesTicketIdentity() {
+        val data = validDraft().copy(trainType = "MAIL/EXPRESS", adults = "2", children = "1", fare = "120.00", via = "PKU-SRC")
+        val route = SavedRoute(origin = data.origin, destination = data.destination, via = data.via,
+            fares = mapOf("MAIL/EXPRESS" to "60", "SUPERFAST" to "75"))
+        val wrongPath = route.copy(via = "OTHER", fares = mapOf("MAIL/EXPRESS" to "30", "SUPERFAST" to "100"))
+        assertEquals("30.00", upgradeSurcharge(data, listOf(wrongPath, route)))
+        assertNull(upgradeSurcharge(data, listOf(wrongPath)))
+        val ticket = StoredTicket(data = data, createdAt = testNow, countdownEndsAt = testNow + 300000, accentIndex = 3,
+            ownerUserId = "owner", ownerUsername = "owner-name")
+        val upgraded = ticket.upgradedTicket("30.00", parseBookingTime(data.bookedOn)!!)!!
+        assertEquals(ticket.copy(data = data.copy(trainType = "SUPERFAST", fare = "150.00")), upgraded)
+        assertNull(upgraded.upgradedTicket("30", testNow))
+        store.save(JourneyState(tickets = listOf(upgraded)))
+        assertEquals(upgraded, store.load().tickets.single())
+    }
+    @Test fun manualUpgradeRejectsBadAmountsAndCompletedOrCancelledTickets() {
+        val data = validDraft().copy(trainType = "MAIL/EXPRESS", fare = "60.00")
+        val ticket = StoredTicket(data = data, createdAt = testNow, countdownEndsAt = testNow, accentIndex = 0)
+        val now = parseBookingTime(data.bookedOn)!!
+        listOf("-1", "NaN", "", "1.234", "1e3").forEach { assertNull(ticket.upgradedTicket(it, now)) }
+        assertEquals("80.50", ticket.upgradedTicket("20.50", now)!!.data.fare)
+        assertNull(ticket.upgradedTicket("20", now + TICKET_COMPLETION_MILLIS))
+        assertNull(ticket.copy(cancelled = true).upgradedTicket("20", now))
+    }
+
 }

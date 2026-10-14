@@ -25,6 +25,7 @@ class NavigationTest {
     private lateinit var second: StoredTicket
     @Before fun start() {
         val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("rail_one_ui", Context.MODE_PRIVATE).edit().putBoolean("others_visible", true).commit()
         context.getSharedPreferences(PROFILES_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences(APP_LOCK_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
         val draft = freshDraft().copy(passengerName = "Traveller", mobile = "9876543210", origin = "HOWRAH",
@@ -326,7 +327,8 @@ class NavigationTest {
         JourneyStore(context).save(JourneyState(tickets = listOf(first, second, third, fourth), showServices = false))
         launchHome()
         compose.onNodeWithTag("upcoming-journeys").performScrollTo()
-        compose.onNodeWithText("1 / 4").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("View All").assertDoesNotExist()
+        compose.onNodeWithText("1 / 4").assertDoesNotExist()
         repeat(3) { page ->
             compose.onNodeWithTag("upcoming-journeys").performScrollTo()
             compose.onNodeWithTag("upcoming-journeys").performTouchInput {
@@ -336,10 +338,10 @@ class NavigationTest {
                     end = Offset(width * .25f, height * .25f), durationMillis = 600)
             }
             compose.waitForIdle()
-            compose.onNodeWithText("${page + 2} / 4").assertExists(
-                "After swipe ${page + 1}, expected page ${page + 2}. Current UI:\n${compose.onRoot().printToString()}")
+            val id = listOf(second.id, third.id, fourth.id)[page]
+            compose.onNodeWithTag("home-ticket-$id").assertIsDisplayed()
         }
-        compose.onNodeWithText("4 / 4").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("4 / 4").assertDoesNotExist()
         compose.onNode(hasText("View Details") and hasAnyAncestor(hasTestTag("home-ticket-fourth"))).performClick()
         compose.onNodeWithText(fourth.data.journeyTicket).performScrollTo().assertIsDisplayed()
     }
@@ -498,6 +500,52 @@ class NavigationTest {
         compose.onNodeWithTag("booking-ticket-${cancelled.id}").assertDoesNotExist()
         compose.onNodeWithContentDescription("Cancelled, 1 tickets").performClick()
         compose.onNodeWithTag("booking-ticket-${cancelled.id}").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun fiveYouTapsToggleOthersAndPersistAcrossRestart() {
+        scenario.close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("rail_one_ui", Context.MODE_PRIVATE).edit().putBoolean("others_visible", false).commit()
+        launchHome()
+        repeat(5) { compose.onNodeWithText("You", substring = false).performClick() }
+        compose.onNodeWithTag("profile-content").performScrollToNode(hasText("Others"))
+        compose.onNodeWithText("Others").assertIsDisplayed()
+        scenario.close(); launchHome()
+        compose.onNodeWithText("You", substring = false).performClick()
+        compose.onNodeWithTag("profile-content").performScrollToNode(hasText("Others"))
+        compose.onNodeWithText("Others").assertIsDisplayed()
+        // Start a new sequence after the one-tap navigation above.
+        compose.onNodeWithText("Home", substring = false).performClick()
+        repeat(5) { compose.onNodeWithText("You", substring = false).performClick() }
+        compose.onNodeWithText("Others").assertDoesNotExist()
+        org.junit.Assert.assertFalse(context.getSharedPreferences("rail_one_ui", Context.MODE_PRIVATE).getBoolean("others_visible", true))
+    }
+    @Test fun ticketHoldShowsStoredValidityAndUpgradeChangesExistingTicket() {
+        scenario.close()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val ticket = first.copy(data = first.data.copy(trainType = "MAIL/EXPRESS", fare = "60.00", validTill = "31/12/2099 23:59"))
+        val route = SavedRoute(origin = ticket.data.origin, destination = ticket.data.destination, via = ticket.data.via,
+            distance = "116", fares = mapOf("MAIL/EXPRESS" to "60", "SUPERFAST" to "75"))
+        JourneyStore(context).save(JourneyState(tickets = listOf(ticket), routes = listOf(route), showServices = false,
+            profile = UserProfile("Traveller", "9876543210", username = "traveller")))
+        launchHome()
+        compose.onNodeWithTag("upcoming-journeys").performScrollTo()
+        compose.onNodeWithText("View Details").performClick()
+        compose.onNodeWithText(ticket.data.journeyTicket).performScrollTo().performTouchInput { longClick() }
+        compose.onNodeWithText("31/12/2099 23:59").assertIsDisplayed()
+        compose.onNode(isDialog()).assertExists()
+        androidx.test.espresso.Espresso.pressBack()
+        compose.onNodeWithText("Upgrade to Superfast").performScrollTo().performClick()
+        compose.onNodeWithText("Ticket Summary").assertIsDisplayed()
+        compose.onNodeWithText("₹15.00", substring = false).assertIsDisplayed()
+        compose.onNode(hasText("Upgrade to Superfast") and hasAnyAncestor(isDialog())).performClick()
+        compose.waitForIdle()
+        val saved = JourneyStore(context).load().tickets.single()
+        org.junit.Assert.assertEquals(ticket.id, saved.id)
+        org.junit.Assert.assertEquals("SUPERFAST", saved.data.trainType)
+        org.junit.Assert.assertEquals("75.00", saved.data.fare)
+        org.junit.Assert.assertEquals(ticket.data.bookedOn, saved.data.bookedOn)
+        org.junit.Assert.assertEquals(ticket.data.validTill, saved.data.validTill)
     }
 
 }
