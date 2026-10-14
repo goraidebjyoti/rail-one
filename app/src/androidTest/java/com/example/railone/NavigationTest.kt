@@ -574,6 +574,13 @@ class NavigationTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         org.junit.Assert.assertEquals(2, JourneyStore(context).load().tickets.size)
     }
+    private fun waitForVisibleBookings() {
+        compose.waitUntil(timeoutMillis = 8_000) {
+            compose.onAllNodesWithTag("bookings-refresh").fetchSemanticsNodes().isEmpty() &&
+                runCatching { compose.onNodeWithTag("bookings-list").assertIsDisplayed() }.isSuccess
+        }
+        compose.waitForIdle()
+    }
     @Test fun countdownExpiryReturnsToAllFilterAndAllHasOnlyOneRefreshControl() {
         scenario.close()
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -584,21 +591,23 @@ class NavigationTest {
         compose.onNodeWithText("My Bookings").performClick()
         compose.onNodeWithContentDescription("All, 2 tickets").performClick()
         compose.onAllNodesWithContentDescription("Refresh bookings").assertCountEquals(1)
-        compose.onNode(hasText("View Details") and hasAnyAncestor(hasTestTag("booking-ticket-${first.id}"))).performClick()
+        compose.onNodeWithTag("bookings-list").performScrollToNode(hasTestTag("booking-ticket-${first.id}"))
+        compose.onNode(hasText("View Details") and hasAnyAncestor(hasTestTag("booking-ticket-${first.id}"))).performScrollTo().performClick()
         expirePreviewAndRecreate(first.id)
-        compose.waitUntil(timeoutMillis = 8_000) { compose.onAllNodesWithTag("bookings-list").fetchSemanticsNodes().isNotEmpty() }
+        waitForVisibleBookings()
         compose.onNodeWithText("Upcoming (1)").assertIsDisplayed()
         compose.onNodeWithTag("bookings-list").performScrollToNode(hasText("Completed (1)"))
-        compose.onNodeWithText("Completed (1)").assertIsDisplayed()
+        compose.onNodeWithText("Completed (1)").performScrollTo().assertIsDisplayed()
         compose.onAllNodesWithContentDescription("Refresh bookings").assertCountEquals(1)
         compose.onNodeWithContentDescription("Refresh bookings").performClick()
-        compose.waitForIdle()
+        waitForVisibleBookings()
         compose.onNodeWithText("Saved data refreshed").assertDoesNotExist()
         compose.onNodeWithTag("bookings-list").assertIsDisplayed()
         compose.onNodeWithContentDescription("Upcoming, 1 tickets").performClick()
-        compose.onNode(hasText("View Details") and hasAnyAncestor(hasTestTag("booking-ticket-${first.id}"))).performClick()
+        compose.onNodeWithTag("bookings-list").performScrollToNode(hasTestTag("booking-ticket-${first.id}"))
+        compose.onNode(hasText("View Details") and hasAnyAncestor(hasTestTag("booking-ticket-${first.id}"))).performScrollTo().performClick()
         expirePreviewAndRecreate(first.id)
-        compose.waitUntil(timeoutMillis = 8_000) { compose.onAllNodesWithTag("bookings-list").fetchSemanticsNodes().isNotEmpty() }
+        waitForVisibleBookings()
         compose.onNodeWithText("Upcoming (1)").assertIsDisplayed()
         compose.onNodeWithText("Completed (1)").assertDoesNotExist()
     }
