@@ -582,7 +582,9 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
         item {
             val completion = listOf(state.profile.name.isNotBlank(), state.profile.mobile.isNotBlank()).count { it } / 2f
             Column(Modifier.padding(start = 19.dp, end = 19.dp, top = 10.dp).fillMaxWidth()
-                .border(2.dp, PaleBlue, RoundedCornerShape(10.dp)).padding(horizontal = 11.dp, vertical = 10.dp)) {
+                .border(2.dp, PaleBlue, RoundedCornerShape(10.dp)).clip(RoundedCornerShape(10.dp))
+                .clickable(onClickLabel = "View your details", onClick = onViewProfile)
+                .padding(horizontal = 11.dp, vertical = 10.dp)) {
                 Text("Profile Complete", fontSize = 14.sp, color = Color.Black, fontWeight = FontWeight.Light)
                 Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     LinearProgressIndicator(progress = { completion }, color = Color(0xFF3B8B3F), trackColor = Color(0xFFE4ECE2),
@@ -608,7 +610,8 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
                 }
                 if (state.passengers.isEmpty()) Text("No saved passengers. Tap Add to save one.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(18.dp))
                 state.passengers.forEach { passenger ->
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 18.dp), verticalAlignment = Alignment.Top) {
+                    Row(Modifier.fillMaxWidth().clickable(onClickLabel = "Update ${passenger.name}") { onEditPassenger(passenger) }
+                        .padding(horizontal = 18.dp, vertical = 18.dp), verticalAlignment = Alignment.Top) {
                         Picture(R.drawable.passenger_avatar, null, Modifier.size(29.dp))
                         Column(Modifier.weight(1f).padding(start = 9.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {

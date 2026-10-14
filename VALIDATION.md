@@ -219,3 +219,7 @@ Raised colon dots by 2 dp, moved the booking-information block from a -2 dp to -
 ## Blue-leaning neon cyan
 
 Shifted the fourth ticket accent from green-leaning #38E8C4 to electric cyan #00E5FF. Both bands use the same colour; stored accent indices remain compatible. Static checks pass.
+
+## Profile and saved-passenger card actions
+
+The Profile Complete box now opens Your Details through the existing profile-view callback. Each saved-passenger row now opens that passenger's existing update form; its edit and delete icon actions remain available. Static Kotlin/XML/serialization checks pass; Android build and touch behavior require CI/device verification.
