@@ -233,7 +233,7 @@ internal val DateOrange = Color(0xFFFFA21A)
 internal val AccentBlue = Color(0xFF67CDE6)
 internal val AccentGreen = Color(0xFFA4D67E)
 internal val AccentViolet = Color(0xFFB8A0F0)
-internal val ACCENT_COLORS = listOf(AccentBlue, AccentGreen, AccentViolet, Color(0xFF38E8C4))
+internal val ACCENT_COLORS = listOf(AccentBlue, AccentGreen, AccentViolet, Color(0xFF00E5FF))
 internal const val TICKET_COUNTDOWN_SECONDS = 300
 internal val RailwayGrey = Color(0xFF9A9AA5)
 internal val BookingGrey = Color(0xFFB9BAC1)
@@ -855,7 +855,7 @@ internal fun DynamicTicket(data: TicketData, secondsLeft: Int, accent: Color) {
                 Spacer(Modifier.height(1.dp))
                 FallingCountdown(secondsLeft)
                 Spacer(Modifier.height(0.dp))
-                Column(Modifier.offset(y = (-2).dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(Modifier.offset(y = (-4).dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Ticket Booking Date & Time", color = BookingGrey, fontSize = 13.sp)
                     Spacer(Modifier.height(1.dp))
                     Text(
@@ -866,7 +866,7 @@ internal fun DynamicTicket(data: TicketData, secondsLeft: Int, accent: Color) {
                         textAlign = TextAlign.Center
                     )
                     Spacer(Modifier.height(2.dp))
-                    Text(data.serviceNo, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Text(data.serviceNo, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     Spacer(Modifier.height(2.dp))
                     Text("Ticket is Non-Transferable", color = Color.White, fontSize = 13.sp)
                 }
@@ -897,8 +897,9 @@ internal fun FallingCountdown(secondsLeft: Int) {
         Canvas(Modifier.width(9.dp).height(64.dp).semantics { contentDescription = ":" }) {
             val radius = 3.4.dp.toPx()
             val gap = 8.dp.toPx()
-            drawCircle(RedOrange, radius, Offset(size.width / 2f, size.height / 2f - gap))
-            drawCircle(RedOrange, radius, Offset(size.width / 2f, size.height / 2f + gap))
+            val centreY = size.height / 2f - 2.dp.toPx()
+            drawCircle(RedOrange, radius, Offset(size.width / 2f, centreY - gap))
+            drawCircle(RedOrange, radius, Offset(size.width / 2f, centreY + gap))
         }
         FallingDigits("%02d".format(seconds))
     }

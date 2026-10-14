@@ -124,7 +124,7 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
             val baseline = state
             withFrameNanos { }
             val read = withContext(Dispatchers.IO) { runCatching { store.load() } }
-            delay(40)
+            delay(1000)
             read.onSuccess { if (state == baseline) state = it }
             bookingsRefreshing = false
         }

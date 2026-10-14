@@ -211,3 +211,11 @@ Doubled the explicit quiet-refresh pause from 20 to 40 ms (in addition to the re
 ## Upgrade confirmation test and keyboard correction
 
 The supplied CI run passed 91/92 tests, including the previously failing countdown/All regression. Upgrade test read MAIL/EXPRESS after its coordinate tap following surcharge editing. The synchronous save path rules out an intended background-save delay; an IME/scroll positioning race is a likely cause, not proven by the abbreviated log. Added a Done action to the surcharge editor that clears focus and hides the keyboard; confirmation also clears focus. The regression verifies edited text, performs Done, scrolls/checks the enabled visible button, invokes its semantics click action and waits for the summary to close before reading committed storage. All ID/type/fare/booking-time/validity assertions remain. Static checks pass; no local Android build or rerun was available.
+
+## Timer and refresh follow-up
+
+Raised colon dots by 2 dp, moved the booking-information block from a -2 dp to -4 dp offset and enlarged the service number from 12 to 14 sp. Quiet bookings refresh now pauses for 1000 ms after its first rendered frame/storage read. Static checks pass; device visual alignment remains unverified locally.
+
+## Blue-leaning neon cyan
+
+Shifted the fourth ticket accent from green-leaning #38E8C4 to electric cyan #00E5FF. Both bands use the same colour; stored accent indices remain compatible. Static checks pass.
