@@ -171,7 +171,7 @@ class JourneyStoreTest {
         assertEquals(original.origin, copy.origin)
         assertEquals(original.passengerName, copy.passengerName)
         assertNotNull(parseBookingTime(copy.bookedOn))
-        assertEquals(3 * 60 * 60 * 1000L, parseBookingTime(copy.validTill)!! - parseBookingTime(copy.bookedOn)!!)
+        assertEquals(60 * 60 * 1000L, parseBookingTime(copy.validTill)!! - parseBookingTime(copy.bookedOn)!!)
         assertEquals("X123456789", original.journeyTicket)
     }
     @Test fun countdownDoesNotResetOnReload() {

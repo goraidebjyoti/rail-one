@@ -179,3 +179,7 @@ Corrected the clarified rules: all fresh/renewed drafts default to one-hour Vali
 ## Behavior-test compilation fix
 
 The supplied CI log confirms assembleDebug succeeded. Test APK compilation failed at NavigationTest.kt because Espresso was not present in the dependency set. Replaced Espresso.pressBack() with InstrumentationRegistry's sendKeyDownUpSync(KEYCODE_BACK), followed by Compose idle synchronization; no dependency changes or production changes. Static checks pass with 89 tests included. The corrected test APK and emulator suite have not been compiled/run locally.
+
+## Book Again validity assertion correction
+
+The supplied CI run compiled both APKs and ran all 89 tests: 88 passed; bookAgainRefreshesTimesAndRemovesReference retained an obsolete three-hour assertion. Changed that assertion to one hour, matching the requested Valid Till behavior. Searched the Android tests for other three-hour assertions and found none. Production code is unchanged. Static checks pass; the corrected suite has not been rerun locally.
