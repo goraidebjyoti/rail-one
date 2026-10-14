@@ -41,6 +41,9 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.rotate
@@ -634,6 +637,7 @@ internal fun BookingHeader(onBack: () -> Unit, mobile: String? = null, onInvoice
 internal fun TicketScreen(data: TicketData, secondsLeft: Int, accent: Color, onBack: () -> Unit, status: String, onConnecting: () -> Unit, onRepeat: () -> Unit = {}, onUpgrade: () -> Unit = {}) {
     var summaryOpen by remember { mutableStateOf(false) }
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val holdContext = LocalContext.current
     if (summaryOpen) HeldTicketSummary(data, status) { summaryOpen = false }
     val qrPayload = "Status=$status\n" + buildQrPayload(data)
     val qrBitmap = remember(qrPayload) { generateQrBitmap(qrPayload, 560) }
@@ -642,6 +646,8 @@ internal fun TicketScreen(data: TicketData, secondsLeft: Int, accent: Color, onB
         Modifier
             .fillMaxSize()
             .background(PageBg)
+            .blur(if (summaryOpen) 24.dp else 0.dp)
+            .alpha(if (summaryOpen && android.os.Build.VERSION.SDK_INT < 31) .05f else 1f)
     ) {
         BookingHeader(onBack = onBack, mobile = data.mobile)
 
@@ -669,7 +675,7 @@ internal fun TicketScreen(data: TicketData, secondsLeft: Int, accent: Color, onB
         Column(Modifier.padding(horizontal = 14.dp, vertical = 14.dp)) {
             Column(Modifier.pointerInput(data) {
                 detectTapGestures(onLongPress = {
-                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    if (!ticketHoldVibration(holdContext)) haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                     summaryOpen = true
                 })
             }) {
@@ -891,16 +897,14 @@ internal fun FallingCountdown(secondsLeft: Int) {
 internal fun FallingDigits(value: String) {
     AnimatedContent(
         targetState = value,
+        modifier = Modifier.height(64.dp).clipToBounds(),
+        contentAlignment = Alignment.Center,
         transitionSpec = {
-            (slideInVertically(animationSpec = tween(450, easing = LinearOutSlowInEasing)) { fullHeight -> -fullHeight } +
-                fadeIn(animationSpec = tween(300))) togetherWith
-                (slideOutVertically(animationSpec = tween(450, easing = FastOutLinearInEasing)) { fullHeight -> fullHeight } +
-                    fadeOut(animationSpec = tween(300))) using SizeTransform(clip = false)
+            slideInVertically(animationSpec = tween(700, easing = LinearEasing)) { height -> -height } togetherWith
+                slideOutVertically(animationSpec = tween(700, easing = LinearEasing)) { height -> height }
         },
         label = "fallingDigits"
-    ) { text ->
-        CountdownText(text)
-    }
+    ) { text -> CountdownText(text) }
 }
 
 @Composable
