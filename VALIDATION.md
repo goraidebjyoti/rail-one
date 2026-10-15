@@ -223,3 +223,7 @@ Shifted the fourth ticket accent from green-leaning #38E8C4 to electric cyan #00
 ## Profile and saved-passenger card actions
 
 The Profile Complete box now opens Your Details through the existing profile-view callback. Each saved-passenger row now opens that passenger's existing update form; its edit and delete icon actions remain available. Static Kotlin/XML/serialization checks pass; Android build and touch behavior require CI/device verification.
+
+## Slow launch-logo shrink and ticket information spacing
+
+The white brand splash now starts at scale 1.6, holds 250 ms, shrinks smoothly to 0.68 over 1600 ms, then holds 150 ms before the existing login/biometric/home handoff. Removed the initial grow animation. Raised the booking date/service/non-transferable block another 2 dp (-6 dp total). Static checks pass; animation timing and visual alignment remain unverified on-device.

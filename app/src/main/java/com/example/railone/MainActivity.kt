@@ -855,7 +855,7 @@ internal fun DynamicTicket(data: TicketData, secondsLeft: Int, accent: Color) {
                 Spacer(Modifier.height(1.dp))
                 FallingCountdown(secondsLeft)
                 Spacer(Modifier.height(0.dp))
-                Column(Modifier.offset(y = (-4).dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(Modifier.offset(y = (-6).dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Ticket Booking Date & Time", color = BookingGrey, fontSize = 13.sp)
                     Spacer(Modifier.height(1.dp))
                     Text(

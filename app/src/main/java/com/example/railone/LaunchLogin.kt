@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -158,13 +159,11 @@ internal fun LaunchGate(session: LoginSession) {
 
 @Composable
 private fun BrandLaunch(onFinished: () -> Unit) {
-    val scale = remember { Animatable(.8f) }
+    val scale = remember { Animatable(1.6f) }
     LaunchedEffect(Unit) {
-        delay(350)
-        scale.animateTo(1.25f, tween(250))
-        delay(120)
-        scale.animateTo(.68f, tween(350))
-        delay(120)
+        delay(250)
+        scale.animateTo(.68f, tween(1600, easing = FastOutSlowInEasing))
+        delay(150)
         onFinished()
     }
     val activity = LocalContext.current as Activity
