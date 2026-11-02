@@ -235,7 +235,8 @@ internal val AccentGreen = Color(0xFFA4D67E)
 internal val AccentViolet = Color(0xFFB8A0F0)
 internal val AccentNeon = Color(0xFF4DEEEA)
 internal val AccentPink = Color(0xFFF7B6D2)
-internal val ACCENT_COLORS = listOf(AccentBlue, AccentGreen, AccentViolet, AccentNeon, AccentPink)
+internal val AccentMint = Color(0xFF99E1C1)
+internal val ACCENT_COLORS = listOf(AccentBlue, AccentGreen, AccentViolet, AccentNeon, AccentPink, AccentMint)
 internal const val TICKET_COUNTDOWN_SECONDS = 300
 internal val RailwayGrey = Color(0xFF9A9AA5)
 internal val BookingGrey = Color(0xFFB9BAC1)
@@ -989,7 +990,7 @@ internal fun TicketBody(data: TicketData, accent: Color) {
         Column(Modifier.padding(horizontal = 16.dp)) {
             Spacer(Modifier.height(18.dp))
             Text(
-                "*Valid for start of journey within 1 hour or until departure of the first train.",
+                ticketFooterText(data),
                 fontSize = 11.sp,
                 color = Color(0xFF7A7B84),
                 lineHeight = 15.sp

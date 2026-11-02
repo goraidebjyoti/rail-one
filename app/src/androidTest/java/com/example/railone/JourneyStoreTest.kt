@@ -492,7 +492,7 @@ class JourneyStoreTest {
         assertEquals("", draft.copy(via = "UNSAVED").swappedRoute(routes).fare)
     }
 
-    @Test fun returnCompletionUsesNextDayAndSundayExtensionWhileValidityStaysIndependent() {
+    @Test fun returnCompletionUsesNextDayWithoutSundayExtensionWhileValidityStaysIndependent() {
         val returnTicket = StoredTicket(data = validDraft().copy(trainType = "ORDINARY", ticketType = "RETURN",
             bookedOn = "09/10/2026 10:00", validTill = "09/10/2026 11:00"), createdAt = testNow, countdownEndsAt = testNow, accentIndex = 0)
         val saturday = parseBookingTime("10/10/2026 23:59")!!
@@ -500,11 +500,13 @@ class JourneyStoreTest {
         assertEquals("Upcoming", returnTicket.status(saturday - 1))
         assertEquals("Completed", returnTicket.status(saturday))
         val saturdayBooked = returnTicket.copy(data = returnTicket.data.copy(bookedOn = "10/10/2026 10:00"))
-        val monday = parseBookingTime("12/10/2026 23:59")!!
-        assertEquals(monday, completionDeadline(saturdayBooked.data, testNow))
-        assertEquals("Upcoming", saturdayBooked.status(parseBookingTime("11/10/2026 23:59")!!))
-        assertEquals("Completed", saturdayBooked.status(monday))
+        val sunday = parseBookingTime("11/10/2026 23:59")!!
+        assertEquals(sunday, completionDeadline(saturdayBooked.data, testNow))
+        assertEquals("Upcoming", saturdayBooked.status(sunday - 1))
+        assertEquals("Completed", saturdayBooked.status(sunday))
         assertEquals("09/10/2026 11:00", returnTicket.data.validTill)
+        assertEquals("Commence Journey within 1 Hrs\nValid for one ret. jrny. till midnight of 10/10/2026", ticketFooterText(returnTicket.data))
+        assertEquals(STANDARD_TICKET_FOOTER, ticketFooterText(returnTicket.data.copy(ticketType = "JOURNEY")))
     }
     @Test fun journeyCompletesAfterTwelveHoursAndNewDraftValidityIsOneHour() {
         val draft = freshDraft()

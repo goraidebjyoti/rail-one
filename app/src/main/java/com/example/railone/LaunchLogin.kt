@@ -162,7 +162,7 @@ private fun BrandLaunch(onFinished: () -> Unit) {
     val scale = remember { Animatable(1.6f) }
     LaunchedEffect(Unit) {
         delay(250)
-        scale.animateTo(.68f, tween(1600, easing = FastOutSlowInEasing))
+        scale.animateTo(1f, tween(1600, easing = FastOutSlowInEasing))
         delay(150)
         onFinished()
     }
@@ -171,8 +171,9 @@ private fun BrandLaunch(onFinished: () -> Unit) {
         val bars = androidx.core.view.WindowCompat.getInsetsController(activity.window, activity.window.decorView)
         bars.isAppearanceLightStatusBars = true; bars.isAppearanceLightNavigationBars = true
     }
-    Box(Modifier.fillMaxSize().background(Color.White).safeDrawingPadding(), contentAlignment = Alignment.Center) {
-        Image(painterResource(R.drawable.launch_brand), "Rail One", Modifier.width(155.dp).scale(scale.value))
+    // The logo settles at about 40% of the screen width, its minimum size.
+    BoxWithConstraints(Modifier.fillMaxSize().background(Color.White).safeDrawingPadding(), contentAlignment = Alignment.Center) {
+        Image(painterResource(R.drawable.launch_brand), "Rail One", Modifier.width(maxWidth * 0.417f).scale(scale.value))
     }
 }
 

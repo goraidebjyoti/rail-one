@@ -53,9 +53,17 @@ internal fun completionDeadline(data: TicketData, fallback: Long): Long {
     return Calendar.getInstance().apply {
         timeInMillis = booked
         add(Calendar.DAY_OF_MONTH, 1)
-        if (get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) add(Calendar.DAY_OF_MONTH, 1)
         set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
     }.timeInMillis
+}
+internal const val STANDARD_TICKET_FOOTER = "*Valid for start of journey within 1 hour or until departure of the first train."
+
+// Return tickets show their own validity note: the ticket is valid until midnight of the next day.
+internal fun ticketFooterText(data: TicketData): String {
+    if (data.ticketType != "RETURN") return STANDARD_TICKET_FOOTER
+    val booked = parseBookingTime(data.bookedOn) ?: return STANDARD_TICKET_FOOTER
+    val date = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.US).format(java.util.Date(completionDeadline(data, booked)))
+    return "Commence Journey within 1 Hrs\nValid for one ret. jrny. till midnight of $date"
 }
 internal fun upgradeSurcharge(data: TicketData, routes: List<SavedRoute>): String? {
     val route = data.savedPath(routes) ?: return null
@@ -117,7 +125,7 @@ internal fun HeldTicketSummary(data: TicketData, status: String, onDismiss: () -
                         strokeWidth = .7.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 2.dp.toPx())))
                 }
                 Box(Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterStart) {
-                    Text("*Valid for start of journey within 1 hour or until departure of the first train.",
+                    Text(ticketFooterText(data),
                         fontSize = 11.sp, lineHeight = 15.sp, color = Color(0xFF7A7B84))
                 }
             }
