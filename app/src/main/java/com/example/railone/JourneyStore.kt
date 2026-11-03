@@ -173,7 +173,8 @@ internal class JourneyStore(private val context: Context, val userId: String = a
                 p.optString("dob"), p.optString("concession", "General"), p.optString("berth", "No Preference"),
                 p.optString("idType", "No Preference"), p.optString("idNumber")) },
             templates = readArray(j.getJSONArray("templates")) { t ->
-                templateFromDraft(ticketFromJson(t.getJSONObject("data")), t.getString("id")) },
+                templateFromDraft(ticketFromJson(t.getJSONObject("data")), t.getString("id"))
+                    .copy(title = t.optString("title"), lastUsed = t.optLong("lastUsed", 0L)) },
             profile = j.getJSONObject("profile").let { UserProfile(it.getString("name"), it.getString("mobile"), it.optString("photoFile"),
                 it.optString("dob"), it.optString("gender", "Not specified"), it.optString("idType", "No Preference"), it.optString("idNumber"),
                 it.optString("address1"), it.optString("address2"), it.optString("pin"), it.optString("district"),
@@ -188,7 +189,7 @@ internal class JourneyStore(private val context: Context, val userId: String = a
                     stored.templates.map(::draftFromTemplate) + stored.tickets.map { it.data })
             }, fares = if (route.has("fares")) route.getJSONObject("fares").let { fares ->
                 fares.keys().asSequence().associateWith { fares.getString(it) }
-            } else emptyMap())
+            } else emptyMap(), lastUsed = route.optLong("lastUsed", 0L))
         }) else stored.copy(routes = routesFromTemplates(stored.templates))
         if ((0 until j.getJSONArray("tickets").length()).any { !j.getJSONArray("tickets").getJSONObject(it).has("ownerUserId") } || !j.has("routes") || (0 until j.getJSONArray("routes").length()).any { !j.getJSONArray("routes").getJSONObject(it).has("distance") || !j.getJSONArray("routes").getJSONObject(it).has("fares") }) check(save(compatible)) { "Unable to save route migration" }
         return compatible
@@ -209,6 +210,7 @@ internal class JourneyStore(private val context: Context, val userId: String = a
             } })
             put("templates", writeArray(state.templates) { t -> JSONObject().apply {
                 put("id", t.id); put("data", ticketJson(draftFromTemplate(t)))
+                put("title", t.title); put("lastUsed", t.lastUsed)
             } })
             put("profile", JSONObject().apply {
                 val p = state.profile
@@ -222,7 +224,7 @@ internal class JourneyStore(private val context: Context, val userId: String = a
             put("showServices", state.showServices)
             put("walletPaise", state.walletPaise)
             put("routes", writeArray(state.routes) { route -> JSONObject().apply {
-                put("id", route.id); put("pairId", route.pairId); put("origin", route.origin); put("destination", route.destination); put("via", route.via); put("distance", route.distance); put("fares", JSONObject(route.fares))
+                put("id", route.id); put("pairId", route.pairId); put("origin", route.origin); put("destination", route.destination); put("via", route.via); put("distance", route.distance); put("fares", JSONObject(route.fares)); put("lastUsed", route.lastUsed)
             } })
         }
         return preferences.edit().putString(key, json.toString()).commit()

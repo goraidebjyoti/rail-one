@@ -14,7 +14,7 @@ import java.util.Locale
 import java.util.UUID
 
 internal data class SavedRoute(val id: String = UUID.randomUUID().toString(), val pairId: String = id,
-    val origin: String = "", val destination: String = "", val via: String = "", val distance: String = "", val fares: Map<String, String> = emptyMap()) {
+    val origin: String = "", val destination: String = "", val via: String = "", val distance: String = "", val fares: Map<String, String> = emptyMap(), val lastUsed: Long = 0L) {
     val label: String get() = "$origin → $destination" + (if (via.isBlank()) " · Direct" else " · Via $via") +
         if (distance.isBlank()) " · Add distance" else " · ${normalDistance(distance)} km"
 }
@@ -37,8 +37,9 @@ private fun routeKey(route: SavedRoute) = listOf(normalStation(route.origin), no
 internal fun List<SavedRoute>.saveRoutePair(input: SavedRoute): List<SavedRoute> {
     require(routeError(input) == null)
     val route = input.copy(origin = normalStation(input.origin), destination = normalStation(input.destination), via = normalVia(input.via), distance = normalDistance(input.distance), fares = normalFares(input.fares))
-    val reverse = route.copy(id = firstOrNull { it.pairId == route.pairId && it.id != route.id }?.id ?: UUID.randomUUID().toString(),
-        origin = route.destination, destination = route.origin, via = reverseVia(route.via))
+    val oldReverse = firstOrNull { it.pairId == route.pairId && it.id != route.id }
+    val reverse = route.copy(id = oldReverse?.id ?: UUID.randomUUID().toString(),
+        origin = route.destination, destination = route.origin, via = reverseVia(route.via), lastUsed = oldReverse?.lastUsed ?: 0L)
     val keys = setOf(routeKey(route), routeKey(reverse))
     return filterNot { it.pairId == route.pairId || routeKey(it) in keys } + listOf(route, reverse)
 }

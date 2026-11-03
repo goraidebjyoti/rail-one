@@ -88,6 +88,31 @@ internal fun LaunchGate(session: LoginSession) {
             override fun onAuthenticationFailed() { if (activeUserId(context) == currentUserId) error = "Biometric not recognised. Try again or use your mPIN." }
         })
     }
+    // Lock again when the app has been in the background for the chosen time.
+    val latestConfig by rememberUpdatedState(config)
+    DisposableEffect(activity) {
+        var backgroundedAt = 0L
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> {
+                    if (session.unlocked) backgroundedAt = android.os.SystemClock.elapsedRealtime()
+                }
+                androidx.lifecycle.Lifecycle.Event.ON_START -> {
+                    val left = backgroundedAt
+                    backgroundedAt = 0L
+                    val lockConfig = latestConfig
+                    if (left != 0L && lockConfig.enabled && session.unlocked &&
+                        android.os.SystemClock.elapsedRealtime() - left >= lockConfig.lockAfterSeconds * 1000L) {
+                        session.unlocked = false; session.biometricAttempted = false
+                        settingsOpen = false; usersOpen = false; pin = ""; error = ""
+                    }
+                }
+                else -> Unit
+            }
+        }
+        activity.lifecycle.addObserver(observer)
+        onDispose { activity.lifecycle.removeObserver(observer) }
+    }
     val recoveryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK && locked) { recovery = true; error = "" }
     }
@@ -241,13 +266,14 @@ private fun LoginSettingsSheet(store: AppLockStore, config: AppLockConfig, biome
     recovery: Boolean, onDismiss: () -> Unit, onSaved: () -> Unit) {
     var enabled by remember { mutableStateOf(if (recovery) true else config.enabled) }
     var biometric by remember { mutableStateOf(config.biometric) }
+    var lockAfter by remember { mutableStateOf(config.lockAfterSeconds) }
     var currentPin by remember { mutableStateOf("") }
     var newPin by remember { mutableStateOf("") }
     var confirmPin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    ReferenceSheet(if (recovery) "Reset mPIN" else "App Login", onDismiss, fraction = .72f) {
+    ReferenceSheet(if (recovery) "Reset mPIN" else "App Login", onDismiss, fraction = .85f) {
         if (!recovery) Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Activate login page", modifier = Modifier.weight(1f), color = LoginInk)
             Switch(checked = enabled, onCheckedChange = { enabled = it }, modifier = Modifier.testTag("login-enable"))
@@ -267,6 +293,13 @@ private fun LoginSettingsSheet(store: AppLockStore, config: AppLockConfig, biome
                 Switch(checked = biometric && biometricAvailable, onCheckedChange = { biometric = it }, enabled = biometricAvailable)
             }
             if (!biometricAvailable) Text("No supported enrolled biometric is available. mPIN login still works.", color = Color.Gray, fontSize = 12.sp)
+            Text("Lock the app after it has been in the background for", color = LoginInk, fontSize = 13.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LOCK_AFTER_OPTIONS.forEach { (seconds, label) ->
+                    FilterChip(selected = lockAfter == seconds, onClick = { lockAfter = seconds }, label = { Text(label, fontSize = 12.sp) },
+                        modifier = Modifier.testTag("lock-after-$seconds"))
+                }
+            }
         }
         if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
         Button(onClick = {
@@ -281,7 +314,7 @@ private fun LoginSettingsSheet(store: AppLockStore, config: AppLockConfig, biome
                             val verified = store.verify(currentPin)
                             if (!verified.accepted) return@withContext verified.error
                         }
-                        if (store.save(enabled, biometric && biometricAvailable, if (needsPin) newPin else "")) "" else "Could not save login settings."
+                        if (store.save(enabled, biometric && biometricAvailable, if (needsPin) newPin else "", lockAfter)) "" else "Could not save login settings."
                     }
                     if (result.isEmpty()) onSaved() else error = result
                 } catch (_: Exception) { error = "Could not save login settings. Please retry." }

@@ -536,7 +536,9 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
     onUseTemplate: (SavedJourney) -> Unit, onDeleteTemplate: (SavedJourney) -> Unit,
     onPhoto: () -> Unit = {}, onRemovePhoto: () -> Unit = {}, onWalletAdd: () -> Unit = {}, onWalletRefresh: () -> Unit = {}, onAccount: () -> Unit = onProfile,
     loginEnabled: Boolean = false, biometricEnabled: Boolean = false, onLoginSettings: () -> Unit = {}, onBiometricToggle: () -> Unit = {}, onAddRoute: () -> Unit = {}, onUseRoute: (SavedRoute) -> Unit = {},
-    onEditRoute: (SavedRoute) -> Unit = {}, onDeleteRoute: (SavedRoute) -> Unit = {}, onSwitchUser: () -> Unit = {}, onSaveStation: (Station) -> String? = { null }, othersVisible: Boolean = false) {
+    onEditRoute: (SavedRoute) -> Unit = {}, onDeleteRoute: (SavedRoute) -> Unit = {}, onSwitchUser: () -> Unit = {}, onSaveStation: (Station) -> String? = { null },
+    onRenameStation: (String, Station) -> String? = { _, _ -> null }, onDeleteStation: (Station) -> String? = { null },
+    onDuplicateTemplate: (SavedJourney) -> Unit = {}, onRenameTemplate: (SavedJourney, String) -> Unit = { _, _ -> }, othersVisible: Boolean = false) {
     var section by rememberSaveable { mutableStateOf("Profile") }
     LaunchedEffect(othersVisible) { if (!othersVisible) section = "Profile" }
     androidx.activity.compose.BackHandler(enabled = section != "Profile") {
@@ -544,7 +546,8 @@ internal fun ProfilePage(state: JourneyState, onRefreshPassengers: () -> Unit, o
     }
     if (section != "Profile") {
         ProfileLibraryPage(section, state, onBack = { section = if (section == "Others") "Profile" else "Others" },
-            onSection = { section = it }, onSaveStation = onSaveStation, onSwitchUser = onSwitchUser, onLoginSettings = onLoginSettings,
+            onSection = { section = it }, onSaveStation = onSaveStation, onRenameStation = onRenameStation, onDeleteStation = onDeleteStation,
+            onDuplicateTemplate = onDuplicateTemplate, onRenameTemplate = onRenameTemplate, onSwitchUser = onSwitchUser, onLoginSettings = onLoginSettings,
             onAddRoute = onAddRoute, onUseRoute = onUseRoute, onEditRoute = onEditRoute, onDeleteRoute = onDeleteRoute,
             onNewTemplate = onNewTemplate, onUseTemplate = onUseTemplate, onEditTemplate = onEditTemplate, onDeleteTemplate = onDeleteTemplate)
         return
@@ -746,13 +749,39 @@ private fun BiometricTile(enabled: Boolean, modifier: Modifier, onClick: () -> U
 private fun ProfileLibraryPage(section: String, state: JourneyState, onBack: () -> Unit, onSection: (String) -> Unit,
     onSwitchUser: () -> Unit, onLoginSettings: () -> Unit, onAddRoute: () -> Unit,
     onUseRoute: (SavedRoute) -> Unit, onEditRoute: (SavedRoute) -> Unit, onDeleteRoute: (SavedRoute) -> Unit,
-    onNewTemplate: () -> Unit, onUseTemplate: (SavedJourney) -> Unit, onEditTemplate: (SavedJourney) -> Unit, onDeleteTemplate: (SavedJourney) -> Unit, onSaveStation: (Station) -> String?) {
+    onNewTemplate: () -> Unit, onUseTemplate: (SavedJourney) -> Unit, onEditTemplate: (SavedJourney) -> Unit, onDeleteTemplate: (SavedJourney) -> Unit, onSaveStation: (Station) -> String?,
+    onRenameStation: (String, Station) -> String?, onDeleteStation: (Station) -> String?,
+    onDuplicateTemplate: (SavedJourney) -> Unit, onRenameTemplate: (SavedJourney, String) -> Unit) {
     var query by rememberSaveable(section) { mutableStateOf("") }
     var stationEditing by remember { mutableStateOf<Station?>(null) }
     var unassigned by rememberSaveable { mutableStateOf(false) }
+    var stationDeleting by remember { mutableStateOf<Station?>(null) }
+    var stationNotice by remember { mutableStateOf<String?>(null) }
+    var templateRenaming by remember { mutableStateOf<SavedJourney?>(null) }
+    var sortRecent by rememberSaveable(section) { mutableStateOf(false) }
     stationEditing?.let { station -> StationEditor(station, { stationEditing = null }) { edited ->
-        val problem = onSaveStation(edited); if (problem == null) stationEditing = null; problem
+        val problem = if (station.name.isNotBlank() && edited.name != station.name) onRenameStation(station.name, edited) else onSaveStation(edited)
+        if (problem == null) stationEditing = null
+        problem
     } }
+    stationDeleting?.let { station ->
+        AlertDialog(onDismissRequest = { stationDeleting = null }, title = { Text("Delete station?") },
+            text = { Text("Delete ${station.display}? No saved route uses it. Existing tickets keep their station names.") },
+            confirmButton = { TextButton(onClick = { stationNotice = onDeleteStation(station); stationDeleting = null }) { Text("Delete") } },
+            dismissButton = { TextButton(onClick = { stationDeleting = null }) { Text("Keep") } })
+    }
+    stationNotice?.let { notice ->
+        AlertDialog(onDismissRequest = { stationNotice = null }, title = { Text("Manage Stations") }, text = { Text(notice) },
+            confirmButton = { TextButton(onClick = { stationNotice = null }) { Text("OK") } })
+    }
+    templateRenaming?.let { template ->
+        var title by rememberSaveable(template.id) { mutableStateOf(template.title) }
+        AlertDialog(onDismissRequest = { templateRenaming = null }, title = { Text("Template name") },
+            text = { OutlinedTextField(title, { title = it.take(40) }, label = { Text("Name (optional)") }, singleLine = true,
+                supportingText = { Text("Leave empty to show the route instead.") }) },
+            confirmButton = { TextButton(onClick = { onRenameTemplate(template, title.trim()); templateRenaming = null }) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { templateRenaming = null }) { Text("Cancel") } })
+    }
     var directOnly by rememberSaveable(section) { mutableStateOf(false) }
     var withViaOnly by rememberSaveable(section) { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().background(Color.White)) {
@@ -795,6 +824,10 @@ private fun ProfileLibraryPage(section: String, state: JourneyState, onBack: () 
                     Row(Modifier.fillMaxWidth().background(PaleBlue, RoundedCornerShape(12.dp)).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(station.display, modifier = Modifier.weight(1f), color = Ink)
                         TextButton(onClick = { stationEditing = station }) { Text("Edit") }
+                        TextButton(onClick = {
+                            if (stationInUse(state.routes, station.name)) stationNotice = "${station.display} is used in a saved route, so it cannot be deleted. Delete or edit those routes first."
+                            else stationDeleting = station
+                        }) { Text("Delete") }
                     }
                 }
             }
@@ -806,10 +839,21 @@ private fun ProfileLibraryPage(section: String, state: JourneyState, onBack: () 
                 FilterChip(selected = directOnly, onClick = { directOnly = !directOnly; withViaOnly = false }, label = { Text("Direct") })
                 FilterChip(selected = withViaOnly, onClick = { withViaOnly = !withViaOnly; directOnly = false }, label = { Text("Via") })
             }
+            Row(Modifier.padding(horizontal = 17.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Sort", color = Muted, fontSize = 13.sp)
+                FilterChip(selected = !sortRecent, onClick = { sortRecent = false }, label = { Text("A–Z") }, modifier = Modifier.testTag("sort-az"))
+                FilterChip(selected = sortRecent, onClick = { sortRecent = true }, label = { Text("Recently used") }, modifier = Modifier.testTag("sort-recent"))
+            }
             fun matches(text: String, via: String): Boolean = text.contains(query.trim(), ignoreCase = true) &&
                 (!directOnly || via.isBlank()) && (!withViaOnly || via.isNotBlank())
-            val routes = state.routes.filter { matches(it.label + " " + it.fares.toString(), it.via) }
-            val templates = state.templates.filter { matches("${it.origin} ${it.destination} ${it.via} ${it.passengerName} ${it.mobile} ${it.trainType} ${it.ticketType} ${it.className} ${it.distance} ${it.fare}", it.via) }
+            val routes = state.routes.filter { matches(it.label + " " + it.fares.toString(), it.via) }.let { found ->
+                if (sortRecent) found.sortedWith(compareByDescending<SavedRoute> { it.lastUsed }.thenBy { it.label.lowercase(java.util.Locale.ROOT) })
+                else found.sortedBy { it.label.lowercase(java.util.Locale.ROOT) }
+            }
+            val templates = state.templates.filter { matches("${it.title} ${it.origin} ${it.destination} ${it.via} ${it.passengerName} ${it.mobile} ${it.trainType} ${it.ticketType} ${it.className} ${it.distance} ${it.fare}", it.via) }.let { found ->
+                if (sortRecent) found.sortedWith(compareByDescending<SavedJourney> { it.lastUsed }.thenBy { it.heading.lowercase(java.util.Locale.ROOT) })
+                else found.sortedBy { it.heading.lowercase(java.util.Locale.ROOT) }
+            }
             LazyColumn(Modifier.weight(1f).testTag("saved-library-list"), contentPadding = PaddingValues(17.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -823,10 +867,13 @@ private fun ProfileLibraryPage(section: String, state: JourneyState, onBack: () 
                         Column(Modifier.fillMaxWidth().background(PaleBlue, RoundedCornerShape(12.dp)).padding(14.dp)) {
                             Text(route.label, color = Ink)
                             if (route.fares.isNotEmpty()) Text(route.fares.entries.joinToString(" · ") { "${it.key}: ₹${it.value}/adult" }, color = Muted, fontSize = 11.sp)
+                            val compact = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+                            val reverse = state.routes.firstOrNull { it.pairId == route.pairId && it.id != route.id }
                             Row {
-                                TextButton(onClick = { onUseRoute(route) }) { Text("Use") }
-                                TextButton(onClick = { onEditRoute(route) }) { Text("Edit") }
-                                TextButton(onClick = { onDeleteRoute(route) }) { Text("Delete") }
+                                TextButton(onClick = { onUseRoute(route) }, contentPadding = compact) { Text("Use") }
+                                if (reverse != null) TextButton(onClick = { onUseRoute(reverse) }, contentPadding = compact, modifier = Modifier.testTag("use-reverse")) { Text("Use reverse") }
+                                TextButton(onClick = { onEditRoute(route) }, contentPadding = compact) { Text("Edit") }
+                                TextButton(onClick = { onDeleteRoute(route) }, contentPadding = compact) { Text("Delete") }
                             }
                         }
                     }
@@ -834,12 +881,16 @@ private fun ProfileLibraryPage(section: String, state: JourneyState, onBack: () 
                     if (templates.isEmpty()) item { Text("No matching templates.", color = Muted) }
                     items(templates, key = { it.id }) { template ->
                         Column(Modifier.fillMaxWidth().background(PaleViolet, RoundedCornerShape(12.dp)).padding(14.dp)) {
-                            Text("${template.origin} → ${template.destination}", color = Ink)
+                            Text(template.heading, color = Ink)
+                            if (template.title.isNotBlank()) Text("${template.origin} → ${template.destination}", color = Muted, fontSize = 12.sp)
                             Text("${template.passengerName} · ${template.via.ifBlank { "Direct" }} · ${template.trainType}", color = Muted, fontSize = 12.sp)
+                            val compact = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                             Row {
-                                TextButton(onClick = { onUseTemplate(template) }) { Text("Use") }
-                                TextButton(onClick = { onEditTemplate(template) }) { Text("Edit") }
-                                TextButton(onClick = { onDeleteTemplate(template) }) { Text("Delete") }
+                                TextButton(onClick = { onUseTemplate(template) }, contentPadding = compact) { Text("Use") }
+                                TextButton(onClick = { onEditTemplate(template) }, contentPadding = compact) { Text("Edit") }
+                                TextButton(onClick = { templateRenaming = template }, contentPadding = compact) { Text("Rename") }
+                                TextButton(onClick = { onDuplicateTemplate(template) }, contentPadding = compact) { Text("Copy") }
+                                TextButton(onClick = { onDeleteTemplate(template) }, contentPadding = compact) { Text("Delete") }
                             }
                         }
                     }

@@ -182,8 +182,12 @@ internal data class SavedJourney(
     val fare: String,
     val irNumber: String,
     val serviceNo: String,
+    /** Optional name chosen by the user, shown instead of the route when set. */
+    val title: String = "",
+    val lastUsed: Long = 0L,
 ) {
     val label: String get() = "$passengerName  —  $origin → $destination"
+    val heading: String get() = title.ifBlank { "$origin → $destination" }
 }
 
 internal const val PROFILES_PREFS = "rail_one_profiles"

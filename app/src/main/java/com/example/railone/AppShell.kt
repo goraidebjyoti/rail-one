@@ -265,7 +265,9 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                                 val bookingDraft = draft.copy(passengerName = state.profile.name.trim(), mobile = state.profile.mobile.trim(), origin = normalStation(stationName(draft.origin, catalog)), destination = normalStation(stationName(draft.destination, catalog)))
                                 val problem = bookingProfileError(state.profile) ?: draftError(bookingDraft)
                                 if (problem != null) error = problem else {
-                                    val template = templateFromDraft(bookingDraft, templateId ?: UUID.randomUUID().toString())
+                                    val template = templateFromDraft(bookingDraft, templateId ?: UUID.randomUUID().toString()).let { fresh ->
+                                        state.templates.find { it.id == fresh.id }?.let { old -> fresh.copy(title = old.title, lastUsed = old.lastUsed) } ?: fresh
+                                    }
                                     if (persist(state.copy(templates = state.templates.filterNot { it.id == template.id } + template))) {
                                         templateId = template.id; draftBaselineRaw = ticketJson(draft).toString(); notify("Journey template saved")
                                     }
@@ -349,12 +351,38 @@ internal fun RailOneApp(loginEnabled: Boolean = false, biometricEnabled: Boolean
                                     val catalog = stationCatalog(state)
                                     val problem = stationError(station, catalog)
                                     if (problem != null) problem else if (persist(state.copy(stations = catalog.filterNot { it.name == station.name } + station))) null else "Could not save station."
-                                }, onSwitchUser = onSwitchUser, onAddRoute = { routeEditing = SavedRoute() },
-                                onUseRoute = { edit(freshDraft().withRoute(it)) },
+                                },
+                                onRenameStation = { oldName, station ->
+                                    val others = stationCatalog(state).filterNot { normalStation(it.name) == normalStation(oldName) }
+                                    val problem = stationError(station, others)
+                                        ?: if (others.any { normalStation(it.name) == normalStation(station.name) }) "A station with that name already exists." else null
+                                    if (problem != null) problem
+                                    else if (persist(state.withStationRenamed(oldName, station))) { notify("Station renamed in saved routes and templates"); null }
+                                    else "Could not save station."
+                                },
+                                onDeleteStation = { station ->
+                                    if (stationInUse(state.routes, station.name)) "${station.name} is used in a saved route, so it cannot be deleted."
+                                    else if (persist(state.withoutStation(station.name))) null else "Could not delete station."
+                                },
+                                onDuplicateTemplate = { template ->
+                                    val copy = template.copy(id = UUID.randomUUID().toString(), title = "${template.heading} (copy)".take(40), lastUsed = 0L)
+                                    if (persist(state.copy(templates = state.templates + copy))) notify("Template duplicated")
+                                },
+                                onRenameTemplate = { template, title ->
+                                    persist(state.copy(templates = state.templates.map { if (it.id == template.id) it.copy(title = title) else it }))
+                                },
+                                onSwitchUser = onSwitchUser, onAddRoute = { routeEditing = SavedRoute() },
+                                onUseRoute = { route ->
+                                    persist(state.copy(routes = state.routes.map { if (it.id == route.id) it.copy(lastUsed = System.currentTimeMillis()) else it }))
+                                    edit(freshDraft().withRoute(route))
+                                },
                                 onEditRoute = { routeEditing = it }, onDeleteRoute = { confirm = "route" to it.pairId },
                                 onNewTemplate = { edit(freshDraft()) },
                                 onEditTemplate = { edit(draftFromTemplate(it), it.id) },
-                                onUseTemplate = { edit(draftFromTemplate(it)) },
+                                onUseTemplate = { template ->
+                                    persist(state.copy(templates = state.templates.map { if (it.id == template.id) it.copy(lastUsed = System.currentTimeMillis()) else it }))
+                                    edit(draftFromTemplate(template))
+                                },
                                 onDeleteTemplate = { confirm = "template" to it.id })
 
                         }
