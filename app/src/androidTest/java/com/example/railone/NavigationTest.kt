@@ -532,6 +532,8 @@ class NavigationTest {
         compose.onNodeWithTag("upcoming-journeys").performScrollTo()
         compose.onNodeWithText("View Details").performClick()
         compose.onNodeWithText(ticket.data.journeyTicket).performScrollTo().performTouchInput { longClick() }
+        compose.waitUntil(timeoutMillis = 5_000) { compose.onAllNodesWithTag("held-ticket-summary").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
         compose.onNodeWithText("31/12/2099 23:59").assertIsDisplayed()
         compose.onNodeWithTag("held-ticket-summary").assertIsDisplayed()
         compose.onNodeWithTag("held-ticket-summary").assertTextContains("● ACTIVE")
@@ -540,6 +542,8 @@ class NavigationTest {
             .sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
         compose.waitForIdle()
         compose.onNodeWithText("Upgrade to Superfast").performScrollTo().performClick()
+        compose.waitUntil(timeoutMillis = 5_000) { compose.onAllNodesWithText("Ticket Summary").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
         compose.onNodeWithText("Ticket Summary").assertIsDisplayed()
         compose.onNodeWithText("₹15.00", substring = false).assertIsDisplayed()
         compose.onNodeWithText("Total Fare", substring = false).assertIsDisplayed()
